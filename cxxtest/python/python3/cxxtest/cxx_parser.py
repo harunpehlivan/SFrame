@@ -101,27 +101,27 @@ class CppInfo(object):
         self.function=[]
 
     def push_scope(self,ns,scope_t,base_classes=[]):
-        name = self.scopes[-1]+"::"+ns
+        name = f"{self.scopes[-1]}::{ns}"
         if self.verbose>=2:
-            print("-- Starting "+scope_t+" "+name)
+            print(f"-- Starting {scope_t} {name}")
         self.scopes.append(name)
         self.index[name] = Scope(ns,name,scope_t,base_classes,scope_lineno-1)
 
     def pop_scope(self):
         scope = self.scopes.pop()
         if self.verbose>=2:
-            print("-- Stopping "+scope)
+            print(f"-- Stopping {scope}")
         return scope
 
     def add_function(self, fn):
         fn = str(fn)
         if self.filter.search(fn):
             self.index[self.scopes[-1]].function.append((fn, identifier_lineno.get(fn,lexer.lineno-1)))
-            tmp = self.scopes[-1]+"::"+fn
+            tmp = f"{self.scopes[-1]}::{fn}"
             if self.verbose==2:
-                print("-- Function declaration "+fn+"  "+tmp)
+                print(f"-- Function declaration {fn}  {tmp}")
             elif self.verbose==1:
-                print("-- Function declaration "+tmp)
+                print(f"-- Function declaration {tmp}")
 
     def get_functions(self,name,quiet=False):
         if name == "::":
@@ -133,25 +133,20 @@ class CppInfo(object):
             if cname is None:
                 if not quiet:
                     print("Defined classes: ",list(self.index.keys()))
-                    print("WARNING: Unknown class "+key)
+                    print(f"WARNING: Unknown class {key}")
             else:
                 fns += self.get_functions(cname,quiet)
         return fns
         
     def find_class(self,name,scope):
         if ':' in name:
-            if name in self.index:
-                return name
-            else:
-                return None           
+            return name if name in self.index else None
         tmp = scope.abs_name.split(':')
         name1 = ":".join(tmp[:-1] + [name])
         if name1 in self.index:
             return name1
-        name2 = "::"+name
-        if name2 in self.index:
-            return name2
-        return None
+        name2 = f"::{name}"
+        return name2 if name2 in self.index else None
 
     def __repr__(self):
         return str(self)
@@ -160,32 +155,28 @@ class CppInfo(object):
         '''Returns true if base is a base-class of cls'''
         if cls in self.index:
             bases = self.index[cls]
-        elif "::"+cls in self.index:
-            bases = self.index["::"+cls]
+        elif f"::{cls}" in self.index:
+            bases = self.index[f"::{cls}"]
         else:
             return False
             #raise IOError, "Unknown class "+cls
         if base in bases.base_classes:
             return True
-        for name in bases.base_classes:
-            if self.is_baseclass(name,base):
-                return True
-        return False
+        return any(self.is_baseclass(name,base) for name in bases.base_classes)
 
     def __str__(self):
         ans=""
-        keys = list(self.index.keys())
-        keys.sort()
+        keys = sorted(self.index.keys())
         for key in keys:
             scope = self.index[key]
-            ans += scope.scope_t+" "+scope.abs_name+"\n"
+            ans += f"{scope.scope_t} {scope.abs_name}" + "\n"
             if scope.scope_t == "class":
-                ans += "  Base Classes: "+str(scope.base_classes)+"\n"
+                ans += f"  Base Classes: {str(scope.base_classes)}" + "\n"
                 for fn in self.get_functions(scope.abs_name):
-                    ans += "  "+fn+"\n"
+                    ans += f"  {fn}" + "\n"
             else:
                 for fn in scope.function:
-                    ans += "  "+fn+"\n"
+                    ans += f"  {fn}" + "\n"
         return ans
 
 
@@ -1039,10 +1030,7 @@ def p_simple_declaration(p):
     '''
     global _parse_info
     if len(p) == 3:
-        if p[2] == ";":
-            decl = p[1]
-        else:
-            decl = p[2]
+        decl = p[1] if p[2] == ";" else p[2]
         if decl is not None:
             fp = flatten(decl)
             if len(fp) >= 2 and fp[0] is not None and fp[0]!="operator" and fp[1] == '(':
@@ -1102,10 +1090,7 @@ def p_suffix_decl_specified_ids(p):
     |                               suffix_built_in_decl_specifier suffix_named_decl_specifiers_sf
     |                               suffix_named_decl_specifiers_sf
     '''
-    if len(p) == 3:
-        p[0] = p[2]
-    else:
-        p[0] = p[1]
+    p[0] = p[2] if len(p) == 3 else p[1]
 
 def p_suffix_decl_specified_scope(p):
     '''suffix_decl_specified_scope : suffix_named_decl_specifiers SCOPE
@@ -1292,10 +1277,7 @@ def p_namespace_alias_definition(p):
 def p_push_scope(p):
     '''push_scope :                 empty'''
     global _parse_info
-    if p[-2] == "namespace":
-        scope=p[-1]
-    else:
-        scope=""
+    scope = p[-1] if p[-2] == "namespace" else ""
     _parse_info.push_scope(scope,"namespace")
 
 def p_using_declaration(p):
@@ -1477,10 +1459,7 @@ def p_func_definition(p):
     if p[2] is not None and p[2][0] == '{':
         decl = flatten(p[1])
         #print "HERE",decl
-        if decl[-1] == ')':
-            decl=decl[-3]
-        else:
-            decl=decl[-1]
+        decl = decl[-3] if decl[-1] == ')' else decl[-1]
         p[0] = decl
         if decl != "operator":
             _parse_info.add_function(decl)
@@ -1492,10 +1471,7 @@ def p_ctor_definition(p):
     |                               constructor_head function_body
     |                               decl_specifier_prefix ctor_definition
     '''
-    if p[2] is None or p[2][0] == "try" or p[2][0] == '{':
-        p[0]=p[1]
-    else:
-        p[0]=p[1]
+    p[0]=p[1]
 
 def p_constructor_head(p):
     '''constructor_head :           bit_field_init_declaration
@@ -1664,20 +1640,14 @@ def p_base_specifier_list(p):
     '''base_specifier_list :        base_specifier
     |                               base_specifier_list ',' base_specifier
     '''
-    if len(p) == 2:
-        p[0] = [p[1]]
-    else:
-        p[0] = p[1]+[p[3]]
+    p[0] = [p[1]] if len(p) == 2 else p[1]+[p[3]]
 
 def p_base_specifier(p):
     '''base_specifier :             scoped_id
     |                               access_specifier base_specifier
     |                               VIRTUAL base_specifier
     '''
-    if len(p) == 2:
-        p[0] = p[1]
-    else:
-        p[0] = p[2]
+    p[0] = p[1] if len(p) == 2 else p[2]
 
 def p_access_specifier(p):
     '''access_specifier :           PRIVATE 
@@ -2076,24 +2046,18 @@ def p_empty(p):
 def _find_column(input,token):
     ''' TODO '''
     i = token.lexpos
-    while i > 0:
-        if input[i] == '\n': break
+    while i > 0 and input[i] != '\n':
         i -= 1
-    column = (token.lexpos - i)+1
-    return column
+    return (token.lexpos - i)+1
 
 def p_error(p):
     if p is None:
         tmp = "Syntax error at end of file."
     else:
-        tmp = "Syntax error at token "
-        if p.type is "":
-            tmp = tmp + "''"
-        else:
-            tmp = tmp + str(p.type)
+        tmp = "Syntax error at token " + ("''" if p.type is "" else str(p.type))
         tmp = tmp + " with value '"+str(p.value)+"'"
-        tmp = tmp + " in line " + str(lexer.lineno-1)
-        tmp = tmp + " at column "+str(_find_column(_parsedata,p))
+        tmp = f"{tmp} in line {str(lexer.lineno - 1)}"
+        tmp = f"{tmp} at column {str(_find_column(_parsedata, p))}"
     raise IOError( tmp )
 
 
@@ -2110,7 +2074,6 @@ def parse_cpp(data=None, filename=None, debug=0, optimize=0, verbose=False, func
     global scope_lineno
     scope_lineno = 0
     global indentifier_lineno
-    identifier_lineno = {}
     global _parse_info
     _parse_info=None
     global _parsedata
@@ -2152,14 +2115,13 @@ def parse_cpp(data=None, filename=None, debug=0, optimize=0, verbose=False, func
     #
     # Parse the file
     #
-    if not data is None:
+    if data is not None:
         _parsedata=data
         ply_init(_parsedata)
         yacc.parse(data,debug=debug)
-    elif not filename is None:
-        f = open(filename)
-        data = f.read()
-        f.close()
+    elif filename is not None:
+        with open(filename) as f:
+            data = f.read()
         _parsedata=data
         ply_init(_parsedata)
         yacc.parse(data, debug=debug)
@@ -2169,6 +2131,7 @@ def parse_cpp(data=None, filename=None, debug=0, optimize=0, verbose=False, func
     if not noExceptionLogic:
         _parse_info.noExceptionLogic = False
     else:
+        identifier_lineno = {}
         for key in identifier_lineno:
             if 'ASSERT_THROWS' in key:
                 _parse_info.noExceptionLogic = False
@@ -2199,6 +2162,6 @@ if __name__ == '__main__':  #pragma: no cover
         # Print the _parse_info object summary for this file.
         # This illustrates how class inheritance can be used to 
         # deduce class members.
-        # 
-        print(str(_parse_info))
+        #
+        print(_parse_info)
 

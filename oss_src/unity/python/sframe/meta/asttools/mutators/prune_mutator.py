@@ -10,10 +10,7 @@ def removeable(self, node):
     '''
     node is removable only if all of its children are as well.
     '''
-    throw_away = []
-    for child in self.children(node):
-        throw_away.append(self.visit(child))
-
+    throw_away = [self.visit(child) for child in self.children(node)]
     if self.mode == 'exclusive':
         return all(throw_away)
     elif self.mode == 'inclusive':
@@ -33,10 +30,10 @@ class PruneVisitor(Visitor):
     '''
     def __init__(self, symbols, mode='exclusive'):
         self.remove_symbols = symbols
-        
+
         if mode not in ['exclusive', 'inclusive']:
             raise TypeError("mode must be one of 'exclusive' or 'inclusive'")
-        
+
         self.mode = mode
 
     visitDefault = removeable
@@ -105,10 +102,7 @@ class PruneVisitor(Visitor):
 
         if len(node.body) == 0:
             node.body.append(Pass(node))
-            if node.optional_vars is None or self.visit(node.optional_vars):
-                return True
-            else:
-                return False
+            return bool(node.optional_vars is None or self.visit(node.optional_vars))
 
     def visitWhile(self, node):
 

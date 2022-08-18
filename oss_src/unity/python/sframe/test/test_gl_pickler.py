@@ -153,7 +153,7 @@ class GLPicklingTest(unittest.TestCase):
     def test_relative_path(self):
         # Arrange
         sf1 = SFrame(range(10))
-        relative_path = 'tmp/%s' % self.filename
+        relative_path = f'tmp/{self.filename}'
 
         # Act
         pickler = gl_pickle.GLPickler(relative_path)
@@ -172,7 +172,7 @@ class GLPicklingTest(unittest.TestCase):
     def test_user_path(self):
         # Arrange
         sf1 = SFrame(range(10))
-        relative_path = '~/tmp/%s' % self.filename
+        relative_path = f'~/tmp/{self.filename}'
 
 
         # Act
@@ -223,7 +223,7 @@ class GLPicklingTest(unittest.TestCase):
         BUCKET_NAME = 'foo'
         boto.connect_s3().create_bucket(BUCKET_NAME)
         sf1 = SFrame(range(10))
-        S3_PATH = "s3://%s/foobar" % BUCKET_NAME
+        S3_PATH = f"s3://{BUCKET_NAME}/foobar"
 
         # Act
         pickler = gl_pickle.GLPickler(S3_PATH)

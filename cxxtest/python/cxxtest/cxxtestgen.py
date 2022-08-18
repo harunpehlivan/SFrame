@@ -162,14 +162,12 @@ def parseCommandline(args):
 
     parser = create_parser()
     (options, args) = parser.parse_args(args=args)
-    if not options.header_filename is None:
+    if options.header_filename is not None:
         if not os.path.exists(options.header_filename):
             abort( "ERROR: the file '%s' does not exist!" % options.header_filename )
-        INPUT = open(options.header_filename)
-        headers = [line.strip() for line in INPUT]
-        args.extend( headers )
-        INPUT.close()
-
+        with open(options.header_filename) as INPUT:
+            headers = [line.strip() for line in INPUT]
+            args.extend( headers )
     if options.fog and not imported_fog:
         abort( "Cannot use the FOG parser.  Check that the 'ply' package is installed.  The 'ordereddict' package is also required if running Python 2.6")
 
@@ -183,20 +181,19 @@ def parseCommandline(args):
     if options.xunit_printer or options.runner == "XUnitPrinter":
         options.xunit_printer=True
         options.runner="XUnitPrinter"
-        if len(args) > 1:
-            if options.xunit_file == "":
-                if options.world == "":
-                    options.world = "cxxtest"
-                options.xunit_file="TEST-"+options.world+".xml"
-        elif options.xunit_file == "":
+        if (
+            len(args) > 1
+            and options.xunit_file == ""
+            or len(args) <= 1
+            and options.xunit_file == ""
+        ):
             if options.world == "":
                 options.world = "cxxtest"
-            options.xunit_file="TEST-"+options.world+".xml"
-
+            options.xunit_file = f"TEST-{options.world}.xml"
     if options.error_printer:
       options.runner= "ErrorPrinter"
       options.haveStandardLibrary = True
-    
+
     if options.noStaticInit and (options.root or options.part):
         abort( '--no-static-init cannot be used with --root/--part' )
 
@@ -217,16 +214,14 @@ def printVersion():
 
 def setFiles(patterns ):
     '''Set input files specified on command line'''
-    files = expandWildcards( patterns )
-    return files
+    return expandWildcards( patterns )
 
 def expandWildcards( patterns ):
     '''Expand all wildcards in an array (glob)'''
     fileNames = []
     for pathName in patterns:
         patternFiles = glob.glob( pathName )
-        for fileName in patternFiles:
-            fileNames.append( fixBackslashes( fileName ) )
+        fileNames.extend(fixBackslashes( fileName ) for fileName in patternFiles)
     return fileNames
 
 def fixBackslashes( fileName ):
@@ -259,24 +254,23 @@ preamble_re = re.compile( r"^\s*<CxxTest\s+preamble>\s*$" )
 world_re = re.compile( r"^\s*<CxxTest\s+world>\s*$" )
 def writeTemplateOutput():
     '''Create output based on template file'''
-    template = open(options.templateFileName)
-    output = startOutputFile()
-    while 1:
-        line = template.readline()
-        if not line:
-            break;
-        if include_re.search( line ):
-            writePreamble( output )
-            output.write( line )
-        elif preamble_re.search( line ):
-            writePreamble( output )
-        elif world_re.search( line ):
-            if len(suites) > 0:
-                output.write("bool "+suites[0]['object']+"_init = false;\n")
-            writeWorld( output )
-        else:
-            output.write( line )
-    template.close()
+    with open(options.templateFileName) as template:
+        output = startOutputFile()
+        while 1:
+            line = template.readline()
+            if not line:
+                break;
+            if include_re.search( line ):
+                writePreamble( output )
+                output.write( line )
+            elif preamble_re.search( line ):
+                writePreamble( output )
+            elif world_re.search( line ):
+                if len(suites) > 0:
+                    output.write("bool "+suites[0]['object']+"_init = false;\n")
+                writeWorld( output )
+            else:
+                output.write( line )
     output.close()
 
 def startOutputFile():
@@ -331,9 +325,10 @@ def writeMain( output ):
     if options.noStaticInit:
         output.write( ' CxxTest::initialize();\n' )
     if options.gui:
-        tester_t = "CxxTest::GuiTuiRunner<CxxTest::%s, CxxTest::%s> " % (options.gui, options.runner)
+        tester_t = f"CxxTest::GuiTuiRunner<CxxTest::{options.gui}, CxxTest::{options.runner}> "
+
     else:
-        tester_t = "CxxTest::%s" % (options.runner)
+        tester_t = f"CxxTest::{options.runner}"
     if options.xunit_printer:
        output.write( '    std::ofstream ofstr("%s");\n' % options.xunit_file )
        output.write( '    %s tmp(ofstr);\n' % tester_t )
@@ -451,15 +446,14 @@ def writeTestDescription( output, suite, test ):
     if not options.noStaticInit:
         output.write( ' %s() : CxxTest::RealTestDescription( %s, %s, %s, "%s" ) {}\n' %
                       (test['class'], suite['tlist'], suite['dobject'], test['line'], test['name']) )
+    elif isDynamic(suite):
+        output.write( ' %s(%s* _%s) : %s(_%s) { }\n' %
+                  (test['class'], suite['fullname'], suite['object'], suite['object'], suite['object']) )
+        output.write( ' %s* %s;\n' % (suite['fullname'], suite['object']) )
     else:
-        if isDynamic(suite):
-            output.write( ' %s(%s* _%s) : %s(_%s) { }\n' %
-                      (test['class'], suite['fullname'], suite['object'], suite['object'], suite['object']) )
-            output.write( ' %s* %s;\n' % (suite['fullname'], suite['object']) )
-        else:
-            output.write( ' %s(%s& _%s) : %s(_%s) { }\n' %
-                      (test['class'], suite['fullname'], suite['object'], suite['object'], suite['object']) )
-            output.write( ' %s& %s;\n' % (suite['fullname'], suite['object']) )
+        output.write( ' %s(%s& _%s) : %s(_%s) { }\n' %
+                  (test['class'], suite['fullname'], suite['object'], suite['object'], suite['object']) )
+        output.write( ' %s& %s;\n' % (suite['fullname'], suite['object']) )
     output.write( ' void runTest() { %s }\n' % runBody( suite, test ) )
     #   
     if not options.noStaticInit:
@@ -469,8 +463,9 @@ def writeTestDescription( output, suite, test ):
 
 def runBody( suite, test ):
     '''Body of TestDescription::run()'''
-    if isDynamic(suite): return dynamicRun( suite, test )
-    else: return staticRun( suite, test )
+    return (
+        dynamicRun(suite, test) if isDynamic(suite) else staticRun(suite, test)
+    )
 
 def dynamicRun( suite, test ):
     '''Body of TestDescription::run() for test in a dynamic suite'''
@@ -489,7 +484,10 @@ def writeSuiteDescription( output, suite ):
 
 def writeDynamicDescription( output, suite ):
     '''Write SuiteDescription for a dynamic suite'''
-    output.write( 'CxxTest::DynamicSuiteDescription< %s > %s' % (suite['fullname'], suite['dobject']) )
+    output.write(
+        f"CxxTest::DynamicSuiteDescription< {suite['fullname']} > {suite['dobject']}"
+    )
+
     if not options.noStaticInit:
         output.write( '( %s, %s, "%s", %s, %s, %s, %s )' %
                       (suite['cfile'], suite['line'], suite['fullname'], suite['tlist'],
@@ -498,7 +496,7 @@ def writeDynamicDescription( output, suite ):
 
 def writeStaticDescription( output, suite ):
     '''Write SuiteDescription for a static suite'''
-    output.write( 'CxxTest::StaticSuiteDescription %s' % suite['dobject'] )
+    output.write(f"CxxTest::StaticSuiteDescription {suite['dobject']}")
     if not options.noStaticInit:
         output.write( '( %s, %s, "%s", %s, %s )' %
                       (suite['cfile'], suite['line'], suite['fullname'], suite['object'], suite['tlist']) )
@@ -615,16 +613,14 @@ def create_manpage():
     for opt in parser.option_list:
         opts = opt._short_opts + opt._long_opts
         optstr = '*' + ', '.join(opts) + '*'
-        if not opt.metavar is None:
+        if opt.metavar is not None:
             optstr += "='%s'" % opt.metavar
         optstr += '::\n'
         options += optstr
         #
         options += opt.help
         options += '\n\n'
-    #
-    OUTPUT = open('cxxtestgen.1.txt','w')
-    OUTPUT.write( man_template.substitute(usage=usage, description=description, options=options) )
-    OUTPUT.close()
+    with open('cxxtestgen.1.txt','w') as OUTPUT:
+        OUTPUT.write( man_template.substitute(usage=usage, description=description, options=options) )
 
 

@@ -104,7 +104,7 @@ class SFrameBuilder(object):
         self._block_size = 1024
 
     def _generate_column_names(self, num_columns):
-        return ["X"+str(i) for i in range(1,num_columns+1)]
+        return [f"X{str(i)}" for i in range(1,num_columns+1)]
 
     def append(self, data, segment=0):
         """
@@ -154,10 +154,9 @@ class SFrameBuilder(object):
 
         # Avoid copy in cases that we are passed materialized data that is
         # smaller than our block size
-        if hasattr(data, '__len__'):
-            if len(data) <= self._block_size:
-                self._builder.append_multiple(data, segment)
-                return
+        if hasattr(data, '__len__') and len(data) <= self._block_size:
+            self._builder.append_multiple(data, segment)
+            return
 
         for i in data:
             tmp_list.append(i)
@@ -182,8 +181,7 @@ class SFrameBuilder(object):
         -------
         out : list[list]
         """
-        if num < 0:
-          num = 0
+        num = max(num, 0)
         return self._builder.read_history(num, segment)
 
     def close(self):

@@ -28,7 +28,7 @@ class SArraySketchTest(unittest.TestCase):
     def __validate_sketch_result(self, sketch, sa, delta = 1E-7):
         df = pd.DataFrame(list(sa.dropna()))
         pds = pd.Series(list(sa.dropna()))
-        if (sa.dtype() == int or sa.dtype() == float):
+        if sa.dtype() in [int, float]:
             if (len(sa) == 0):
                 self.assertTrue(math.isnan(sketch.min()))
                 self.assertTrue(math.isnan(sketch.min()))
@@ -111,7 +111,7 @@ class SArraySketchTest(unittest.TestCase):
             expected = sa.vector_slice(key)
             self.__validate_sketch_result(s[key], expected)
 
-        indexes = range(0,10)
+        indexes = range(10)
         s = sa.sketch_summary(sub_sketch_keys = indexes).element_sub_sketch()
         self.assertEqual(len(s), len(indexes))
 
@@ -281,7 +281,7 @@ class SArraySketchTest(unittest.TestCase):
         self.assertEqual(len(t), 0)
 
     def test_large_value_sketch(self):
-        sa = SArray([1234567890 for i in range(100)])
+        sa = SArray([1234567890 for _ in range(100)])
         sk = sa.sketch_summary()
         self.__validate_sketch_result(sa.sketch_summary(), sa, 1E-5)
 

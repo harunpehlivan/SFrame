@@ -10,7 +10,7 @@ if sys.version_info.major >= 3:
     import subprocess as commands
 else: 
     import commands
-    
+
 import json
 import logging
 import os
@@ -93,9 +93,9 @@ def create_test_objects():
 class LocalFSConnectorTests(unittest.TestCase):
 
     @classmethod
-    def setUpClass(self):
-        self.tempfile = tempfile.NamedTemporaryFile().name
-        (self.graph, self.sframe) = create_test_objects()
+    def setUpClass(cls):
+        cls.tempfile = tempfile.NamedTemporaryFile().name
+        cls.graph, cls.sframe = create_test_objects()
 
     def _test_read_write_helper(self, url, content):
         url = util._make_internal_url(url)
@@ -131,8 +131,8 @@ class LocalFSConnectorTests(unittest.TestCase):
 class HttpConnectorTests(unittest.TestCase):
 
     @classmethod
-    def setUpClass(self):
-        self.url = "http://s3-us-west-2.amazonaws.com/testdatasets/a_to_z.txt.gz"
+    def setUpClass(cls):
+        cls.url = "http://s3-us-west-2.amazonaws.com/testdatasets/a_to_z.txt.gz"
 
     def _test_read_helper(self, url, content_expected):
         url = util._make_internal_url(url)
@@ -140,8 +140,7 @@ class HttpConnectorTests(unittest.TestCase):
         self.assertEquals(content_read, content_expected)
 
     def test_read(self):
-        expected = "\n".join([str(unichr(i + ord('a'))) for i in range(26)])
-        expected = expected + "\n"
+        expected = "\n".join([str(unichr(i + ord('a'))) for i in range(26)]) + "\n"
         self._test_read_helper(self.url, expected)
 
     def test_exception(self):
@@ -153,10 +152,10 @@ class HDFSConnectorTests(unittest.TestCase):
     # This test requires hadoop to be installed and avaiable in $PATH.
     # If not, the tests will be skipped.
     @classmethod
-    def setUpClass(self):
-        self.has_hdfs = len(_sys_util.get_hadoop_class_path()) > 0
-        self.tempfile = tempfile.NamedTemporaryFile().name
-        (self.graph, self.sframe) = create_test_objects()
+    def setUpClass(cls):
+        cls.has_hdfs = len(_sys_util.get_hadoop_class_path()) > 0
+        cls.tempfile = tempfile.NamedTemporaryFile().name
+        cls.graph, cls.sframe = create_test_objects()
 
     def _test_read_write_helper(self, url, content_expected):
         url = util._make_internal_url(url)
@@ -190,17 +189,23 @@ class HDFSConnectorTests(unittest.TestCase):
             logging.getLogger(__name__).info("No hdfs avaiable. Test pass.")
 
     def test_exception(self):
-        bad_url = "hdfs:///root/"
         if self.has_hdfs:
             self.assertRaises(IOError, lambda: glconnect.get_unity().__read__("hdfs:///"))
             self.assertRaises(IOError, lambda: glconnect.get_unity().__read__("hdfs:///tmp"))
             self.assertRaises(IOError, lambda: glconnect.get_unity().__read__("hdfs://" + self.tempfile))
-            self.assertRaises(IOError, lambda: glconnect.get_unity().__write__(bad_url + "/tmp", "somerandomcontent"))
-            self.assertRaises(IOError, lambda: self.graph.save(bad_url + "x.graph"))
-            self.assertRaises(IOError, lambda: self.sframe.save(bad_url + "x.frame_idx"))
-            self.assertRaises(IOError, lambda: load_graph(bad_url + "mygraph"))
-            self.assertRaises(IOError, lambda: load_sframe(bad_url + "x.frame_idx"))
-            self.assertRaises(IOError, lambda: load_model(bad_url + "x.model"))
+            bad_url = "hdfs:///root/"
+            self.assertRaises(
+                IOError,
+                lambda: glconnect.get_unity().__write__(
+                    f"{bad_url}/tmp", "somerandomcontent"
+                ),
+            )
+
+            self.assertRaises(IOError, lambda: self.graph.save(f"{bad_url}x.graph"))
+            self.assertRaises(IOError, lambda: self.sframe.save(f"{bad_url}x.frame_idx"))
+            self.assertRaises(IOError, lambda: load_graph(f"{bad_url}mygraph"))
+            self.assertRaises(IOError, lambda: load_sframe(f"{bad_url}x.frame_idx"))
+            self.assertRaises(IOError, lambda: load_model(f"{bad_url}x.model"))
         else:
             logging.getLogger(__name__).info("No hdfs avaiable. Test pass.")
 
@@ -209,26 +214,26 @@ class HDFSConnectorTests(unittest.TestCase):
 class S3ConnectorTests(unittest.TestCase):
     # This test requires aws cli to be installed. If not, the tests will be skipped.
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         status, output = commands.getstatusoutput('aws s3api list-buckets')
-        self.has_s3 = (status is 0)
-        self.standard_bucket = None
-        self.regional_bucket = None
+        cls.has_s3 = (status is 0)
+        cls.standard_bucket = None
+        cls.regional_bucket = None
         # Use aws cli s3api to find a bucket with "gl-testdata" in the name, and use it as out test bucket.
         # Temp files will be read from /written to the test bucket's /tmp folder and be cleared on exist.
-        if self.has_s3:
+        if cls.has_s3:
             try:
                 json_output = json.loads(output)
                 bucket_list = [b['Name'] for b in json_output['Buckets']]
                 assert 'gl-testdata' in bucket_list
                 assert 'gl-testdata-oregon' in bucket_list
-                self.standard_bucket = 'gl-testdata'
-                self.regional_bucket = 'gl-testdata-oregon'
-                self.tempfile = tempfile.NamedTemporaryFile().name
-                (self.graph, self.sframe) = create_test_objects()
+                cls.standard_bucket = 'gl-testdata'
+                cls.regional_bucket = 'gl-testdata-oregon'
+                cls.tempfile = tempfile.NamedTemporaryFile().name
+                cls.graph, cls.sframe = create_test_objects()
             except:
                 logging.getLogger(__name__).warning("Fail parsing ioutput of s3api into json. Please check your awscli version.")
-                self.has_s3 = False
+                cls.has_s3 = False
 
     def _test_read_write_helper(self, url, content_expected):
         s3url = util._make_internal_url(url)
@@ -263,7 +268,7 @@ class S3ConnectorTests(unittest.TestCase):
     def test_exception(self):
         if self.has_s3:
             bad_bucket = "i_am_a_bad_bucket"
-            prefix = "s3://" + bad_bucket
+            prefix = f"s3://{bad_bucket}"
             self.assertRaises(IOError, lambda: glconnect.get_unity().__read__("s3:///"))
             self.assertRaises(IOError, lambda: glconnect.get_unity().__read__("s3://" + self.standard_bucket + "/somerandomfile"))
             self.assertRaises(IOError, lambda: glconnect.get_unity().__read__("s3://" + "/somerandomfile"))

@@ -6,12 +6,11 @@ print "patching ", sys.argv[1]
 includestring = re.compile("#include\s?<(.*hp*)>")
 
 def remap_line(i):
-    t = includestring.match(i)
-    if t:
+    if t := includestring.match(i):
         g = t.group(1)
-        print g
-        if os.path.isfile('graphlab/' + g):
-            return "#include <graphlab/" + g + ">\n"
+        g = t.group(1)
+        if os.path.isfile(f'graphlab/{g}'):
+            return f"#include <graphlab/{g}" + ">\n"
     return i
 
 lines = file(sys.argv[1], 'r').readlines()

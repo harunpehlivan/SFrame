@@ -80,7 +80,6 @@ RDD_JAR_FILE = "spark_unity.jar"
 RDD_SUPPORT_INITED = False
 BINARY_PATHS = {}
 STAGING_DIR = None
-RDD_SUPPORT = True
 PRODUCTION_RUN = False
 REMOTE_OS = None
 SPARK_SUPPORT_NAMES = {'RDD_JAR_PATH': 'spark_unity.jar'}
@@ -97,14 +96,11 @@ for i in SFRAME_ROOTS:
         break
     first = False
 
-for name in SPARK_SUPPORT_NAMES.keys():
-    if (name not in BINARY_PATHS):
-        if sys.platform != 'win32':
-            __LOGGER__.warn("GraphLab engine cannot find %s" % SPARK_SUPPORT_NAMES[name])
+for name, value in SPARK_SUPPORT_NAMES.items():
+    if (name not in BINARY_PATHS) and sys.platform != 'win32':
+        __LOGGER__.warn(f"GraphLab engine cannot find {value}")
 
-if not all(name in BINARY_PATHS for name in SPARK_SUPPORT_NAMES.keys()):
-    RDD_SUPPORT = False
-
+RDD_SUPPORT = all(name in BINARY_PATHS for name in SPARK_SUPPORT_NAMES)
 if sys.version_info.major > 2:
     long = int
 
@@ -148,21 +144,19 @@ def __rdd_support_init__(sprk_ctx,graphlab_util_ref):
         # Set binary path
         for i in BINARY_PATHS.keys():
             s = BINARY_PATHS[i]
-            if REMOTE_OS == 'Linux':
-                BINARY_PATHS[i] = os.path.join(os.path.dirname(s),os.path.basename(s))
-            elif REMOTE_OS == 'Darwin':
+            if REMOTE_OS in ['Linux', 'Darwin']:
                 BINARY_PATHS[i] = os.path.join(os.path.dirname(s),os.path.basename(s))
             else:
                 raise RuntimeError("YARN cluster has unsupported operating system "\
                                     "(something other than Linux or Mac OS X). "\
                                     "Cannot convert RDDs on this cluster to SFrame.")
 
-    # Create staging directory
-    staging_dir = '.graphlabStaging'
     if sprk_ctx.master.startswith('yarn-client') or sprk_ctx.master.startswith('spark://'):
         # Get that staging directory's full name
         tmp_loc = graphlab_util_ref.getHadoopNameNode()
 
+        # Create staging directory
+        staging_dir = '.graphlabStaging'
         STAGING_DIR = os.path.join(tmp_loc, "user", sprk_ctx.sparkUser(), staging_dir)
         if STAGING_DIR is None:
             raise RuntimeError("Failed to create a staging directory on HDFS. "\
@@ -172,7 +166,7 @@ def __rdd_support_init__(sprk_ctx,graphlab_util_ref):
         unity = glconnect.get_unity()
         unity.__mkdir__(STAGING_DIR)
         unity.__chmod__(STAGING_DIR, 0o777)
-    elif sprk_ctx.master[0:5] == 'local':
+    elif sprk_ctx.master[:5] == 'local':
         # Save the output sframes to the same temp workspace this engine is
         # using
         #TODO: Consider cases where server and client aren't on the same machine
@@ -214,8 +208,7 @@ def load_sframe(filename):
     >>> sf.save('my_sframe')        # 'my_sframe' is a directory
     >>> sf_loaded = graphlab.load_sframe('my_sframe')
     """
-    sf = SFrame(data=filename)
-    return sf
+    return SFrame(data=filename)
 
 def _get_global_dbapi_info(dbapi_module, conn):
     """
@@ -242,13 +235,11 @@ def _get_global_dbapi_info(dbapi_module, conn):
     module_name = dbapi_module.__name__ if hasattr(dbapi_module, '__name__') else None
 
     needed_vars = ['apilevel','paramstyle','Error','DATETIME','NUMBER','ROWID']
-    ret_dict = {}
-    ret_dict['module_name'] = module_name
-
+    ret_dict = {'module_name': module_name}
     for i in needed_vars:
         tmp = None
         try:
-            tmp = eval("dbapi_module."+i)
+            tmp = eval(f"dbapi_module.{i}")
         except AttributeError as e:
             # Some DBs don't actually care about types, so they won't define
             # the types. These are the ACTUALLY needed variables though
@@ -261,7 +252,7 @@ def _get_global_dbapi_info(dbapi_module, conn):
         ret_dict[i] = tmp
 
     try:
-        if ret_dict['apilevel'][0:3] != "2.0":
+        if ret_dict['apilevel'][:3] != "2.0":
             raise NotImplementedError("Unsupported API version " +\
               str(ret_dict['apilevel']) + ". Only DBAPI 2.0 is supported.")
     except TypeError as e:

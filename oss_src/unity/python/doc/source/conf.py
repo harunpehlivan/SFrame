@@ -14,13 +14,13 @@
 import sys, os
 
 # Import SFrame and several submodules so that sphinx can find them.
-import sframe 
+import sframe
 for m in [
           'image_analysis',
           'load_model',
           'extensions',
           ]:
-    module_name = 'sframe.' + m
+    module_name = f'sframe.{m}'
     sys.modules[module_name] = eval(module_name)
 
 
@@ -28,7 +28,8 @@ for m in [
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('.'))
-print sys.path
+import sys, os
+
 #sys.path.insert(0, os.path.abspath('../venv/lib/python2.7/site-packages/'))
 
 # -- General configuration -----------------------------------------------------

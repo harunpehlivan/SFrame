@@ -38,31 +38,53 @@ def from_lambda(v):
     u = glconnect.get_unity()
     return u.eval_lambda(lambda x: x, v)
 
-special_types = set()
+IntegerValue = [0, long(1)] + [
+    _dt(0)
+    for _dt in (
+        np.sctypes['int'] + np.sctypes['uint'] + [np.bool, bool, np.bool_]
+    )
+]
 
-IntegerValue = (
-    [int(0), long(1)]
-     + [_dt(0) for _dt in (np.sctypes['int'] + np.sctypes['uint']
-                         + [np.bool, bool, np.bool_])])
-special_types.add(id(IntegerValue))
-
+special_types = {id(IntegerValue)}
 # 2**63 and -2**63-1 are not representable by a C int64_t, so it's
 # treated as a float.
 FloatValue = [float(0)] + [_dt(0) for _dt in np.sctypes['float']] + [2**63, -2**63 - 1]
 special_types.add(id(FloatValue))
 
-StringValue = ([str('bork'), unicode('bork'), b'bork', b'']
-               + [_dt('bork') for _dt in
-                  [np.unicode, np.unicode_, str, unicode, np.str,
-                   np.str_, np.string_]]
-               + [str(''), unicode('')]
-               + [_dt('') for _dt in
-                  [np.unicode, np.unicode_, str, unicode, np.str,
-                   np.str_, np.string_]])
-                   
+StringValue = (
+    (
+        ['bork', unicode('bork'), b'bork', b'']
+        + [
+            _dt('bork')
+            for _dt in [
+                np.unicode,
+                np.unicode_,
+                str,
+                unicode,
+                np.str,
+                np.str_,
+                np.string_,
+            ]
+        ]
+    )
+    + ['', unicode('')]
+) + [
+    _dt('')
+    for _dt in [
+        np.unicode,
+        np.unicode_,
+        str,
+        unicode,
+        np.str,
+        np.str_,
+        np.string_,
+    ]
+]
+
+
 special_types.add(id(StringValue))
 
-DictValue = [{'a' : 12}, dict()]
+DictValue = [{'a' : 12}, {}]
 special_types.add(id(DictValue))
 
 DatetimeValue = [datetime.date(2000, 6, 12),
@@ -152,24 +174,52 @@ EmptySequence = [[], tuple(), set()]
 special_types.add(id(EmptySequence))
 
 # Boolean Sequences
-BooleanSequence = (
-    [ list( (i%2 == 0) for i in range(3))
-      , tuple( (i%2 == 0) for i in range(3))
-      , set([True]), set([False]), set([True, False])]
-    + [np.array([i%2==0 for i in range(3)], dtype= _dt)
-       for _dt in [np.bool, np.bool_, bool]])
+BooleanSequence = [
+    [i % 2 == 0 for i in range(3)],
+    tuple((i % 2 == 0) for i in range(3)),
+    {True},
+    {False},
+    {True, False},
+] + [
+    np.array([i % 2 == 0 for i in range(3)], dtype=_dt)
+    for _dt in [np.bool, np.bool_, bool]
+]
+
 special_types.add(id(BooleanSequence))
 
 # String sequences
 StringSequence = (
-    [ list( str(i) for i in range(3))
-      , tuple( str(i) for i in range(3))
-    , set( str(i) for i in range(3))
-      , frozenset( str(i) for i in range(3))]
-    + [np.array([_dt('a'), _dt('b')], dtype = _dt)
-       for _dt in [np.unicode, np.unicode_, str, unicode, np.str, np.str_, np.string_]]
-    + [np.array([_dt('a'), _dt('b')], dtype = object)
-       for _dt in [np.unicode, np.unicode_, str, unicode, np.str, np.str_, np.string_]])
+    [
+        [str(i) for i in range(3)],
+        tuple(str(i) for i in range(3)),
+        {str(i) for i in range(3)},
+        frozenset(str(i) for i in range(3)),
+    ]
+    + [
+        np.array([_dt('a'), _dt('b')], dtype=_dt)
+        for _dt in [
+            np.unicode,
+            np.unicode_,
+            str,
+            unicode,
+            np.str,
+            np.str_,
+            np.string_,
+        ]
+    ]
+) + [
+    np.array([_dt('a'), _dt('b')], dtype=object)
+    for _dt in [
+        np.unicode,
+        np.unicode_,
+        str,
+        unicode,
+        np.str,
+        np.str_,
+        np.string_,
+    ]
+]
+
 special_types.add(id(StringSequence))
 
 AnySequence = (EmptySequence + BooleanSequence + StringSequence
@@ -210,8 +260,10 @@ def verify_inference(values, expected_type):
             inferred_type, result = _get_inferred_column_type(v_list)
 
             if inferred_type != expected_type:
-                assert False, ("Expected type %s, got type %s; input value = %s."
-                               % (str(expected_type), str(inferred_type), str(v_list)))
+                assert (
+                    False
+                ), f"Expected type {str(expected_type)}, got type {str(inferred_type)}; input value = {str(v_list)}."
+
 
             if inferred_type != NoneType:
                 reconverted_result = _tr_flex_list(result, inferred_type)
@@ -296,15 +348,9 @@ class FlexibleTypeInference(unittest.TestCase):
         ([StringSequence, FloatSequence], list)]
 
         # Add in additional rules for testing
-        for tv, res in copy(tests):
-            tests.append( (tv + [EmptySequence], res) )
-
-        for tv, res in copy(tests):
-            tests.append( (tv + [[None]], list) )
-
-        for tv, res in copy(tests):
-            tests.append( (tv + [StringSequence], list) )
-
+        tests.extend((tv + [EmptySequence], res) for tv, res in copy(tests))
+        tests.extend((tv + [[None]], list) for tv, res in copy(tests))
+        tests.extend((tv + [StringSequence], list) for tv, res in copy(tests))
         # Run the tests
         for tv, res in tests:
             verify_inference(tv, res)
@@ -389,7 +435,7 @@ class FlexibleTypeTest(unittest.TestCase):
 
     def test_dict(self):
         d = dt.datetime(2010, 10, 10, 10, 10, 10)
-        img = image.Image(current_file_dir + "/images/nested/sample_grey.jpg","JPG")
+        img = image.Image(f"{current_file_dir}/images/nested/sample_grey.jpg", "JPG")
         expected = {'int': 0, 'float': 0.1, 'str': 'str',
                     'list': ['a', 'b', 'c'], 'array': array.array('d', [1, 2, 3]),'datetime':[d],
                      'image': img ,'none': None}
@@ -401,7 +447,7 @@ class FlexibleTypeTest(unittest.TestCase):
 
     def test_list(self):
         d = dt.datetime(2010, 10, 10, 10, 10, 10)
-        img = image.Image(current_file_dir + "/images/nested/sample_grey.jpg","JPG")
+        img = image.Image(f"{current_file_dir}/images/nested/sample_grey.jpg", "JPG")
         expected = [None, img, 1, 0.1, '1',d,array.array('d', [1, 2, 3]), {'foo': array.array('d', [1, 2,3])}]
 
         self.assert_equal_with_lambda_check(_flexible_type(expected), expected)
@@ -409,14 +455,26 @@ class FlexibleTypeTest(unittest.TestCase):
         self.assert_equal_with_lambda_check(_flexible_type([[], []]), [[], []])
 
     def test_image(self):
-        img_gray_jpg = image.Image(current_file_dir + "/images/nested/sample_grey.jpg","JPG")
-        img_gray_png = image.Image(current_file_dir + "/images/nested/sample_grey.png","PNG")
-        img_gray_auto_jpg = image.Image(current_file_dir + "/images/nested/sample_grey.jpg")
-        img_gray_auto_png = image.Image(current_file_dir + "/images/nested/sample_grey.png")
-        img_color_jpg = image.Image(current_file_dir + "/images/sample.jpg","JPG")
-        img_color_png = image.Image(current_file_dir + "/images/sample.png","PNG")
-        img_color_auto_jpg = image.Image(current_file_dir + "/images/sample.jpg")
-        img_color_auto_png = image.Image(current_file_dir + "/images/sample.png")
+        img_gray_jpg = image.Image(
+            f"{current_file_dir}/images/nested/sample_grey.jpg", "JPG"
+        )
+
+        img_gray_png = image.Image(
+            f"{current_file_dir}/images/nested/sample_grey.png", "PNG"
+        )
+
+        img_gray_auto_jpg = image.Image(
+            f"{current_file_dir}/images/nested/sample_grey.jpg"
+        )
+
+        img_gray_auto_png = image.Image(
+            f"{current_file_dir}/images/nested/sample_grey.png"
+        )
+
+        img_color_jpg = image.Image(f"{current_file_dir}/images/sample.jpg", "JPG")
+        img_color_png = image.Image(f"{current_file_dir}/images/sample.png", "PNG")
+        img_color_auto_jpg = image.Image(f"{current_file_dir}/images/sample.jpg")
+        img_color_auto_png = image.Image(f"{current_file_dir}/images/sample.png")
 
 
         self.assert_equal_with_lambda_check(_flexible_type(img_gray_jpg),img_gray_jpg)
@@ -448,8 +506,11 @@ class FlexibleTypeTest(unittest.TestCase):
         self.assert_equal_with_lambda_check(_tr_flex_list(expected, dt.datetime), expected)
         self.assert_equal_with_lambda_check(_tr_flex_list(expected, dt.datetime, ignore_cast_failure=True), expected)
         # test image list
-        img_gray_auto_png = image.Image(current_file_dir + "/images/nested/sample_grey.png")
-        img_color_jpg = image.Image(current_file_dir + "/images/sample.jpg","JPG")
+        img_gray_auto_png = image.Image(
+            f"{current_file_dir}/images/nested/sample_grey.png"
+        )
+
+        img_color_jpg = image.Image(f"{current_file_dir}/images/sample.jpg", "JPG")
         expected = [img_gray_auto_png, img_color_jpg, None]
         self.assert_equal_with_lambda_check(_tr_flex_list(expected), expected)
         self.assert_equal_with_lambda_check(_tr_flex_list(expected, image.Image), expected)
@@ -483,8 +544,19 @@ class FlexibleTypeTest(unittest.TestCase):
                                             [{}, {'a': 1}, None])
 
     def test_infer_list_type(self):
-        self.assertEquals(infer_type_of_list([image.Image(current_file_dir + "/images/nested/sample_grey.png"), image.Image(current_file_dir + "/images/sample.jpg","JPG"), image.Image(current_file_dir + "/images/sample.png")
-]), image.Image)
+        self.assertEquals(
+            infer_type_of_list(
+                [
+                    image.Image(
+                        f"{current_file_dir}/images/nested/sample_grey.png"
+                    ),
+                    image.Image(f"{current_file_dir}/images/sample.jpg", "JPG"),
+                    image.Image(f"{current_file_dir}/images/sample.png"),
+                ]
+            ),
+            image.Image,
+        )
+
         self.assertEquals(infer_type_of_list([dt.datetime(2010, 10, 10, 10, 10, 10), dt.datetime(2000, 5, 7, 10, 4, 10),dt.datetime(1845, 5, 7, 4, 4, 10)]), dt.datetime)
         self.assertEquals(infer_type_of_list([0, 1, 2]), int)
         self.assertEquals(infer_type_of_list([0, 1, 2.0]), float)

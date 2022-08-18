@@ -15,10 +15,7 @@ from ..cython import cy_test_utils
 
 
 def fib(i):
-    if i <= 2:
-        return 1
-    else:
-        return fib(i - 1) + fib(i - 2)
+    return 1 if i <= 2 else fib(i - 1) + fib(i - 2)
 
 
 class LambdaTests(unittest.TestCase):
@@ -34,7 +31,12 @@ class LambdaTests(unittest.TestCase):
     def test_exception(self):
         x = 3
         self.assertRaises(RuntimeError, glconnect.get_unity().eval_lambda, lambda y: x / y, 0)
-        self.assertRaises(RuntimeError, glconnect.get_unity().parallel_eval_lambda, lambda y: x / y, [0 for i in range(10)])
+        self.assertRaises(
+            RuntimeError,
+            glconnect.get_unity().parallel_eval_lambda,
+            lambda y: x / y,
+            [0 for _ in range(10)],
+        )
 
     def test_parallel_evaluation(self):
         xin = 33
@@ -43,18 +45,21 @@ class LambdaTests(unittest.TestCase):
         start_time = time.time()
         glconnect.get_unity().eval_lambda(lambda x: [fib(i) for i in x], [xin]*repeat)
         single_thread_time = time.time() - start_time
-        logging.info("Single thread lambda eval takes %s secs" % single_thread_time)
+        logging.info(f"Single thread lambda eval takes {single_thread_time} secs")
 
         # execute the task in parallel
         start_time = time.time()
         ans_list = glconnect.get_unity().parallel_eval_lambda(lambda x: fib(x), [xin]*repeat)
         multi_thread_time = time.time() - start_time
-        logging.info("Multi thread lambda eval takes %s secs" % multi_thread_time)
+        logging.info(f"Multi thread lambda eval takes {multi_thread_time} secs")
 
         # test the speed up by running in parallel
         nproc = multiprocessing.cpu_count()
         if (nproc > 1 and multi_thread_time > (single_thread_time / 1.5)):
-            logging.warning("Slow parallel processing: single thread takes %s secs, multithread on %s procs takes %s secs" % (single_thread_time, nproc, multi_thread_time))
+            logging.warning(
+                f"Slow parallel processing: single thread takes {single_thread_time} secs, multithread on {nproc} procs takes {multi_thread_time} secs"
+            )
+
 
         # test accuracy
         ans = fib(xin)

@@ -22,21 +22,8 @@ def decompile_func(func):
     
     :return: ast.FunctionDef instance.
     '''
-    if hasattr(func, 'func_code'):
-        code = func.func_code
-    else:
-        code = func.__code__
-
-    # For python 3
-#    defaults = func.func_defaults if sys.version_info.major < 3 else func.__defaults__
-#    if defaults:
-#        default_names = code.co_varnames[:code.co_argcount][-len(defaults):]
-#    else:
-#        default_names = []
-#    defaults = [_ast.Name(id='%s_default' % name, ctx=_ast.Load() , lineno=0, col_offset=0) for name in default_names]
-    ast_node = make_function(code, defaults=[], lineno=code.co_firstlineno)
-
-    return ast_node
+    code = func.func_code if hasattr(func, 'func_code') else func.__code__
+    return make_function(code, defaults=[], lineno=code.co_firstlineno)
 
 def compile_func(ast_node, filename, globals, **defaults):
     '''
@@ -52,15 +39,13 @@ def compile_func(ast_node, filename, globals, **defaults):
     funcion_name = ast_node.name
     module = _ast.Module(body=[ast_node])
 
-    ctx = {'%s_default' % key : arg for key, arg in defaults.items()}
+    ctx = {f'{key}_default': arg for key, arg in defaults.items()}
 
     code = compile(module, filename, 'exec')
 
     eval(code, globals, ctx)
 
-    function = ctx[funcion_name]
-
-    return function
+    return ctx[funcion_name]
 
 #from imp import get_magic
 #

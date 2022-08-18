@@ -70,9 +70,7 @@ if sys.version_info < (2,6):    #pragma: no cover
 
         if i < 2:
             return os.path.join(*path)
+        if rel := ['..'] * (len(start) - i) + path[i:]:
+            return os.path.join(*rel)
         else:
-            rel = ['..']*(len(start)-i) + path[i:]
-            if rel:
-                return os.path.join(*rel)
-            else:
-                return '.'
+            return '.'

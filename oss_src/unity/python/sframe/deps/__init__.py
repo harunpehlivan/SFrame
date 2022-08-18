@@ -13,7 +13,7 @@ import re
 def __get_version(version):
     # matching 1.6.1, and 1.6.1rc, 1.6.1.dev
     version_regex = '^\d+\.\d+\.\d+'
-    version = re.search(version_regex, str(version)).group(0)
+    version = re.search(version_regex, str(version))[0]
     return StrictVersion(version)
 
 
@@ -51,7 +51,7 @@ SKLEARN_MIN_VERSION = '0.15'
 def __get_sklearn_version(version):
     # matching 0.15b, 0.16bf, etc
     version_regex = '^\d+\.\d+'
-    version = re.search(version_regex, str(version)).group(0)
+    version = re.search(version_regex, str(version))[0]
     return StrictVersion(version)
 
 try:
@@ -70,7 +70,7 @@ HAS_NLTK = True
 NLTK_MIN_VERSION = '3.0'
 def __get_nltk_version(version):
     version_regex = '^\d+\.\d+'
-    version = re.search(version_regex, str(version)).group(0)
+    version = re.search(version_regex, str(version))[0]
     return StrictVersion(version)
 
 try:

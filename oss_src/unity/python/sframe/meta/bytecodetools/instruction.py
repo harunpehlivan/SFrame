@@ -40,7 +40,7 @@ class Instruction(object):
         elif self.op in opcode.hasjabs:
             return self.oparg
         else:
-            raise Exception("this is not a jump op (%s)" % (self.opname,))
+            raise Exception(f"this is not a jump op ({self.opname})")
 
     def __repr__(self):
         res = '<%s(%i)' % (opcode.opname[self.op], self.i,)
@@ -49,7 +49,7 @@ class Instruction(object):
             res += ' arg=%r' % (self.arg,)
         elif self.oparg is not None:
             res += ' oparg=%r' % (self.oparg,)
-        return res + '>'
+        return f'{res}>'
 
     def __str__(self):
         result = []
@@ -69,25 +69,22 @@ class Instruction(object):
         else:
             result.append('  ')
 
-        result.append(repr(self.i).rjust(4))
-
-        result.append(opcode.opname[self.op].ljust(20))
-
+        result.extend((repr(self.i).rjust(4), opcode.opname[self.op].ljust(20)))
         if self.op >= opcode.HAVE_ARGUMENT:
 
             result.append(repr(self.oparg).rjust(5))
             if self.op in opcode.hasconst:
-                result.append('(' + repr(self.arg) + ')')
+                result.append(f'({repr(self.arg)})')
             elif self.op in opcode.hasname:
-                result.append('(' + repr(self.arg) + ')')
+                result.append(f'({repr(self.arg)})')
             elif self.op in opcode.hasjrel:
-                result.append('(to ' + repr(self.arg) + ')')
+                result.append(f'(to {repr(self.arg)})')
             elif self.op in opcode.haslocal:
-                result.append('(' + repr(self.arg) + ')')
+                result.append(f'({repr(self.arg)})')
             elif self.op in opcode.hascompare:
-                result.append('(' + repr(self.arg) + ')')
+                result.append(f'({repr(self.arg)})')
             elif self.op in opcode.hasfree:
-                result.append('(' + repr(self.arg) + ')')
+                result.append(f'({repr(self.arg)})')
         return ' '.join(result)
 
         

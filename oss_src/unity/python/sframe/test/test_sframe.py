@@ -59,7 +59,7 @@ class SFrameTest(unittest.TestCase):
         self.int_data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.float_data = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.]
         self.string_data = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-        self.a_to_z = [str(chr(97 + i)) for i in range(0, 26)]
+        self.a_to_z = [chr(97 + i) for i in range(26)]
         self.dataframe = pd.DataFrame({'int_data': self.int_data, 'float_data': self.float_data, 'string_data': self.string_data})
         self.url = "http://s3-us-west-2.amazonaws.com/testdatasets/a_to_z.txt.gz"
 
@@ -79,8 +79,10 @@ class SFrameTest(unittest.TestCase):
                               self.list_data,
                               self.dict_data,
                               self.datetime_data*5]
-        self.sf_all_types = SFrame({"X"+str(i[0]):i[1] for i in zip(range(1,8),
-          self.all_type_cols)})
+        self.sf_all_types = SFrame(
+            {f"X{str(i[0])}": i[1] for i in zip(range(1, 8), self.all_type_cols)}
+        )
+
 
         # Taken from http://en.wikipedia.org/wiki/Join_(SQL) for fun.
         self.employees_sf = SFrame()
@@ -99,28 +101,25 @@ class SFrameTest(unittest.TestCase):
         for i in range(len(l1)):
             v1 = l1[i]
             v2 = l2[i]
-            if v1 == None:
+            if v1 is None:
                 self.assertEqual(v2, None)
-            else:
-                if type(v1) == dict:
-                    self.assertEquals(len(v1), len(v2))
-                    for key in v1:
-                        self.assertTrue(key in v1)
-                        self.assertEqual(v1[key], v2[key])
+            elif type(v1) == dict:
+                self.assertEquals(len(v1), len(v2))
+                for key in v1:
+                    self.assertTrue(key in v1)
+                    self.assertEqual(v1[key], v2[key])
 
-                elif (hasattr(v1, "__iter__")):
-                    self.assertEquals(len(v1), len(v2))
-                    for j in range(len(v1)):
-                        t1 = v1[j]; t2 = v2[j]
-                        if (type(t1) == float):
-                            if (math.isnan(t1)):
-                                self.assertTrue(math.isnan(t2))
-                            else:
-                                self.assertEquals(t1, t2)
-                        else:
-                            self.assertEquals(t1, t2)
-                else:
-                    self.assertEquals(v1, v2)
+            elif (hasattr(v1, "__iter__")):
+                self.assertEquals(len(v1), len(v2))
+                for j in range(len(v1)):
+                    t1 = v1[j]
+                    t2 = v2[j]
+                    if (type(t1) == float) and (math.isnan(t1)):
+                        self.assertTrue(math.isnan(t2))
+                    else:
+                        self.assertEquals(t1, t2)
+            else:
+                self.assertEquals(v1, v2)
 
     def test_split_datetime(self):
         from_zone = GMT(0)
@@ -167,7 +166,7 @@ class SFrameTest(unittest.TestCase):
         int_data = []
         float_data = []
         string_data = []
-        for i in range(0,size):
+        for i in range(size):
             int_data.append(i)
             float_data.append(float(i))
             string_data.append(str(i))
@@ -258,18 +257,17 @@ class SFrameTest(unittest.TestCase):
             self.assertEqual(sf.dtype(), [str, str, str])
             all_string_column_df = self.dataframe.apply(lambda x: [str(ele) for ele in x])
             self.assertEqual(len(sf), 5)
-            self.__test_equal(sf, all_string_column_df[0:len(sf)])
+            self.__test_equal(sf, all_string_column_df[:len(sf)])
 
 
             sf = SFrame.read_csv(csvfile.name)
             sf2 = SFrame(csvfile.name, format='csv')
             self.__test_equal(sf2, sf.to_dataframe())
 
-            f = open(csvfile.name, "w")
-            f.write('a,b,c\n')
-            f.write('NA,PIKA,CHU\n')
-            f.write('1.0,2,3\n')
-            f.close()
+            with open(csvfile.name, "w") as f:
+                f.write('a,b,c\n')
+                f.write('NA,PIKA,CHU\n')
+                f.write('1.0,2,3\n')
             sf = SFrame.read_csv(csvfile.name,
                                  na_values=['NA','PIKA','CHU'],
                                  column_type_hints={'a':float,'b':int,'c':str})
@@ -485,11 +483,10 @@ class SFrameTest(unittest.TestCase):
         self.__test_equal(sf, df)
 
         fgzip = tempfile.NamedTemporaryFile(suffix='.txt.gz', delete=False)
-        f_in = open(f.name, 'rb')
-        f_out = gzip.open(fgzip.name, 'wb')
-        f_out.writelines(f_in)
-        f_out.close()
-        f_in.close()
+        with open(f.name, 'rb') as f_in:
+            f_out = gzip.open(fgzip.name, 'wb')
+            f_out.writelines(f_in)
+            f_out.close()
         sf = SFrame(fgzip.name)
         self.assertEquals(sf['string_data'].dtype(), int)
         sf['string_data'] = sf['string_data'].astype(str)
@@ -591,7 +588,7 @@ class SFrameTest(unittest.TestCase):
             shutil.rmtree(csv_dir)
         os.mkdir(csv_dir)
 
-        for i in range(0, 100):
+        for i in range(100):
             with open(os.path.join(csv_dir, 'foo.%d.csv' % i), 'w') as f:
                 url = f.name
                 self.dataframe.to_csv(url, index=False)
@@ -640,11 +637,8 @@ class SFrameTest(unittest.TestCase):
         # Normal list of lists
         list_of_lists = [[1.0,2.0,3.0],[4.0,5.0,6.0],[7.0,8.0,9.0]]
         sf = SFrame(list_of_lists)
-        cntr = 0
-        for i in sf:
+        for cntr, i in enumerate(sf):
             self.assertEquals(list_of_lists[cntr], list(i['X1']))
-            cntr += 1
-
         self.assertEquals(sf.num_columns(), 1)
 
         the_dict = {'ints':self.int_data,'floats':self.float_data,'strings':self.string_data}
@@ -667,7 +661,7 @@ class SFrameTest(unittest.TestCase):
         assert_frame_equal(sf.head(4).to_dataframe(), self.dataframe.head(4))
         # Cannot test for equality the same way because of dataframe indices
         taildf = sf.tail(4)
-        for i in range(0, 4):
+        for i in range(4):
             self.assertEqual(taildf['int_data'][i], self.dataframe['int_data'][i+6])
             self.assertEqual(taildf['float_data'][i], self.dataframe['float_data'][i+6])
             self.assertEqual(taildf['string_data'][i], self.dataframe['string_data'][i+6])
@@ -822,7 +816,7 @@ class SFrameTest(unittest.TestCase):
         assert_frame_equal(df2, df2_expected)
 
         df2 = sf.topk('string_data', 3).to_dataframe()
-        for i in range(0, 3):
+        for i in range(3):
             self.assertEqual(df2['int_data'][2-i], i + 7)
 
         with self.assertRaises(TypeError):
@@ -880,11 +874,7 @@ class SFrameTest(unittest.TestCase):
 
     def test_sample_split(self):
         sf = SFrame(data=self.__create_test_df(100))
-        entry_list = set()
-        for i in sf:
-            entry_list.add(str(i))
-
-
+        entry_list = {str(i) for i in sf}
         sample_sf = sf.sample(.12, 9)
         sample_sf2 = sf.sample(.12, 9)
         self.assertEqual(len(sample_sf), len(sample_sf2))
@@ -901,10 +891,7 @@ class SFrameTest(unittest.TestCase):
 
         a_split = sf.random_split(.12, 9)
 
-        first_split_entries = set()
-        for i in a_split[0]:
-            first_split_entries.add(str(i))
-
+        first_split_entries = {str(i) for i in a_split[0]}
         for i in a_split[1]:
             self.assertTrue(str(i) in entry_list)
             self.assertTrue(str(i) not in first_split_entries)
@@ -928,7 +915,7 @@ class SFrameTest(unittest.TestCase):
         names = sf.column_names()
         cntr = 1
         for i in names:
-            self.assertEquals("X"+str(cntr), i)
+            self.assertEquals(f"X{str(cntr)}", i)
             cntr = cntr + 1
 
         # Remove a column
@@ -1068,15 +1055,17 @@ class SFrameTest(unittest.TestCase):
         length(i, j) = i - j
         """
         sf = SFrame()
-        sparse_matrix = {}
-        for i in range(1, num_users + 1):
-            sparse_matrix[i] = [(j, i + j, i - j) for j in range(1, i + 1)]
+        sparse_matrix = {
+            i: [(j, i + j, i - j) for j in range(1, i + 1)]
+            for i in range(1, num_users + 1)
+        }
+
         user_ids = []
         movie_ids = []
         ratings = []
         length_of_watching = []
-        for u in sparse_matrix:
-            user_ids += [u] * len(sparse_matrix[u])
+        for u, value in sparse_matrix.items():
+            user_ids += [u] * len(value)
             movie_ids += [x[0] for x in sparse_matrix[u]]
             ratings += [x[1] for x in sparse_matrix[u]]
             length_of_watching += [x[2] for x in sparse_matrix[u]]
@@ -1093,8 +1082,7 @@ class SFrameTest(unittest.TestCase):
         """
         for m in [1, 10, 20, 50, 100]:
             values = range(m)
-            vector_values = [[random.randint(1,100) for num in range(10)] \
-                                                          for y in range(m)]
+            vector_values = [[random.randint(1,100) for _ in range(10)] for _ in range(m)]
             sf = SFrame()
             sf['key'] = [1] * m
             sf['value'] = values
@@ -1152,8 +1140,8 @@ class SFrameTest(unittest.TestCase):
         self.assertEqual(list(sf2['Var of value']), [0, 0])
         self.assertEqual(list(sf2['Stdv of value']), [0, 0])
         self.assertEqual(list(sf2['Count Distinct of value']), [2, 1])
-        self.assertEqual(set(sf2['Distinct of value'][0]), set([1, None]))
-        self.assertEqual(set(sf2['Distinct of value'][1]), set([None]))
+        self.assertEqual(set(sf2['Distinct of value'][0]), {1, None})
+        self.assertEqual(set(sf2['Distinct of value'][1]), {None})
         self.assertEqual(sf2['Frequency Count of value'][0], {1:1, None:5})
         self.assertEqual(sf2['Frequency Count of value'][1], {None:4})
 
@@ -1164,8 +1152,7 @@ class SFrameTest(unittest.TestCase):
         """
         for m in [1, 10, 20, 50, 100]:
             values = range(m)
-            vector_values = [[random.randint(1,100) for num in range(10)] \
-                                                          for y in range(m)]
+            vector_values = [[random.randint(1,100) for _ in range(10)] for _ in range(m)]
             sf = SFrame()
             sf['key'] = [1] * m
             sf['value'] = values
@@ -1202,8 +1189,7 @@ class SFrameTest(unittest.TestCase):
         """
         for m in [1, 10, 20, 50, 100]:
             values = range(m)
-            vector_values = [[random.randint(1,100) for num in range(10)] \
-                                                           for y in range(m)]
+            vector_values = [[random.randint(1,100) for _ in range(10)] for _ in range(m)]
             sf = SFrame()
             sf['key'] = [1] * m
             sf['value'] = values
@@ -1262,8 +1248,10 @@ class SFrameTest(unittest.TestCase):
         """
         sf_user_rating = sf.groupby('user_id', built_ins)
         actual = sf_user_rating.column_names()
-        expected = ['%s of rating' % v for v in built_in_names] \
-                                        + ['user_id'] + ['Count']
+        expected = ([f'{v} of rating' for v in built_in_names] + ['user_id']) + [
+            'Count'
+        ]
+
         self.assertSetEqual(set(actual), set(expected))
         for row in sf_user_rating:
             uid = row['user_id']
@@ -1272,8 +1260,7 @@ class SFrameTest(unittest.TestCase):
             expected = [len(ratings), sum(ratings), np.mean(ratings),
                     min(ratings), max(ratings), np.var(ratings),
                     np.sqrt(np.var(ratings))]
-            actual = [row['Count']] + [row['%s of rating' % op] \
-                                             for op in built_in_names]
+            actual = ([row['Count']] + [row[f'{op} of rating'] for op in built_in_names])
             for i in range(len(actual)):
                 self.assertAlmostEqual(actual[i], expected[i])
 
@@ -1294,8 +1281,10 @@ class SFrameTest(unittest.TestCase):
                 aggregate.STDV('length')]
         sf_movie_length = sf.groupby('movie_id', built_ins)
         actual = sf_movie_length.column_names()
-        expected = ['%s of length' % v for v in built_in_names] \
-                                            + ['movie_id'] + ['Count']
+        expected = ([f'{v} of length' for v in built_in_names] + ['movie_id']) + [
+            'Count'
+        ]
+
         self.assertSetEqual(set(actual), set(expected))
         for row in sf_movie_length:
             mid = row['movie_id']
@@ -1303,8 +1292,7 @@ class SFrameTest(unittest.TestCase):
             values = [i - int(mid) for i in uids]
             expected = [len(values), sum(values), np.mean(values), min(values),
                     max(values), np.var(values), np.std(values)]
-            actual = [row['Count']] + [row['%s of length' % op] \
-                                                for op in built_in_names]
+            actual = ([row['Count']] + [row[f'{op} of length'] for op in built_in_names])
             for i in range(len(actual)):
                 self.assertAlmostEqual(actual[i], expected[i])
 
@@ -1398,8 +1386,8 @@ class SFrameTest(unittest.TestCase):
             self.assertEqual(c1.size(), c2.size())
             if (column in list_columns):
                 for i in range(len(c1)):
-                    if (c1[i] == None):
-                        self.assertTrue(c2[i] == None)
+                    if c1[i] is None:
+                        self.assertTrue(c2[i] is None)
                         continue
                     if (c1.dtype() == dict):
                         for k in c1[i]:
@@ -1494,7 +1482,7 @@ class SFrameTest(unittest.TestCase):
         res = list(sf.groupby('a', {'b':aggregate.SELECT_ONE('b')}))
         self.assertEqual(len(res), 5)
         for i in res:
-            self.assertTrue(i['b'] == 2 * i['a'] or i['b'] == 2 * i['a'] - 1)
+            self.assertTrue(i['b'] in [2 * i['a'], 2 * i['a'] - 1])
 
     def test_unique(self):
         sf = SFrame({'a':[1,1,2,2,3,3,4,4,5,5],'b':[1,2,3,4,5,6,7,8,9,10]})
@@ -1504,8 +1492,8 @@ class SFrameTest(unittest.TestCase):
         sf = SFrame({'a':vals,'b':vals})
         res = sf.unique()
         self.assertEqual(len(res), 5)
-        self.assertEqual(set(res['a']), set([1,2,3,4,None]))
-        self.assertEqual(set(res['b']), set([1,2,3,4,None]))
+        self.assertEqual(set(res['a']), {1, 2, 3, 4, None})
+        self.assertEqual(set(res['b']), {1, 2, 3, 4, None})
 
     def test_append_empty(self):
         sf_with_data = SFrame(data=self.dataframe)
@@ -1528,8 +1516,14 @@ class SFrameTest(unittest.TestCase):
         new_sf = sf1.append(sf2)
         self.assertTrue(new_sf.__is_materialized__())
 
-        filter_sf1 = SArray([1 for i in range(sf1.num_rows())] + [0 for i in range(sf2.num_rows())])
-        filter_sf2 = SArray([0 for i in range(sf1.num_rows())] + [1 for i in range(sf2.num_rows())])
+        filter_sf1 = SArray(
+            [1 for _ in range(sf1.num_rows())] + [0 for _ in range(sf2.num_rows())]
+        )
+
+        filter_sf2 = SArray(
+            [0 for _ in range(sf1.num_rows())] + [1 for _ in range(sf2.num_rows())]
+        )
+
         new_sf1 = new_sf[filter_sf1]
         new_sf2 = new_sf[filter_sf2]
         assert_frame_equal(self.dataframe.append(self.dataframe2, ignore_index=True), new_sf.to_dataframe())
@@ -1538,7 +1532,7 @@ class SFrameTest(unittest.TestCase):
 
         row = sf1.head(1)
         sf = SFrame()
-        for i in range(10):
+        for _ in range(10):
             sf = sf.append(row)
         df = sf.to_dataframe()
         for i in range(10):
@@ -1546,7 +1540,7 @@ class SFrameTest(unittest.TestCase):
 
     def test_recursive_append(self):
         sf = SFrame()
-        for i in range(200):
+        for _ in range(200):
             sf = sf.append(SFrame(data = self.dataframe))
 
         #consume
@@ -1566,7 +1560,7 @@ class SFrameTest(unittest.TestCase):
             sf.print_rows(output_file=output)
 
         n = 20
-        sf['int'] = [i for i in range(n)]
+        sf['int'] = list(range(n))
         sf['float'] = [float(i) for i in range(n)]
         sf['str'] = [str(i) for i in range(n)]
         uc = '\xe5\xa4\xa7\xe5\xa4\xb4'  # dato pronounced in chinese, big head

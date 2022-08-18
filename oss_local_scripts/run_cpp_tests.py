@@ -22,9 +22,10 @@ if __name__ == '__main__':
   # Get all cxxtests in directory
   matches = []
   for root, dirnames, filenames in os.walk('.'):
-    for filename in fnmatch.filter(filenames, '*.cxxtest*'):
-      matches.append(os.path.join(root, filename))
-  print('Found {} tests.'.format(len(matches)))
+    matches.extend(
+        os.path.join(root, filename)
+        for filename in fnmatch.filter(filenames, '*.cxxtest*'))
+  print(f'Found {len(matches)} tests.')
 
   # Load the previous cache if it exists
   if os.path.exists(args.cache_file):
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     print("Invalid cache contents. Resetting cache")
     cache = set()
 
-  print('Found {} files in cache.'.format(len(cache)))
+  print(f'Found {len(cache)} files in cache.')
 
   # Hash each test binary.
   new_tests = {}
@@ -51,14 +52,13 @@ if __name__ == '__main__':
   print('Hashed {0} files in {1} seconds.'.format(len(new_tests), elapsed))
 
   # Make a list of tests whose hash does not appear in the cache
-  tests = []
-  for test_file in new_tests.keys():
-      if new_tests[test_file] not in cache:
-          tests.append(test_file)
-  print('Ready to test {} files.'.format(len(tests)))
+  tests = [
+      test_file for test_file, value in new_tests.items() if value not in cache
+  ]
+  print(f'Ready to test {len(tests)} files.')
 
   # If there are no tests, pick a random one.
-  if len(tests) == 0:
+  if not tests:
     print("For annoying reasons, we cannot handle running 0 tests because jenkins will complain. So we are running the first test")
     tests = [matches[0]]
 
@@ -83,10 +83,10 @@ if __name__ == '__main__':
   lines = [line for line in ctest_output.splitlines() if "Passed" in line]
   # go through all the tests and see if we have a "Passed" line matching it
   for i in range(len(tests)):
-      for line in lines:
-          if " " + runtests[i] + " " in line:
-              # pass!
-              cache.add(new_tests[tests[i]])
+    for line in lines:
+      if f" {runtests[i]} " in line:
+        # pass!
+        cache.add(new_tests[tests[i]])
 
   # Save to cache
   pickle.dump(cache, open(args.cache_file, "wb" ))

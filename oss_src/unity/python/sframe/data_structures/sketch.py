@@ -172,86 +172,86 @@ class Sketch(object):
             self.__proxy__.construct_from_sarray(array.__proxy__, background, sub_sketch_keys)
 
     def __repr__(self):
-      """
+        """
       Emits a brief summary of all the statistics as a string.
       """
-      fields = [
-        ['size',           'Length' ,       'Yes'],
-        ['min',            'Min' ,          'Yes'],
-        ['max',            'Max' ,          'Yes'],
-        ['mean',           'Mean' ,         'Yes'],
-        ['sum',            'Sum' ,          'Yes'],
-        ['var',            'Variance' ,     'Yes'],
-        ['std',            'Standard Deviation' , 'Yes'],
-        ['num_undefined', '# Missing Values' , 'Yes',],
-        ['num_unique',     '# unique values',  'No' ]
-      ]
+        fields = [
+          ['size',           'Length' ,       'Yes'],
+          ['min',            'Min' ,          'Yes'],
+          ['max',            'Max' ,          'Yes'],
+          ['mean',           'Mean' ,         'Yes'],
+          ['sum',            'Sum' ,          'Yes'],
+          ['var',            'Variance' ,     'Yes'],
+          ['std',            'Standard Deviation' , 'Yes'],
+          ['num_undefined', '# Missing Values' , 'Yes',],
+          ['num_unique',     '# unique values',  'No' ]
+        ]
 
-      s = '\n'
-      result = []
-      for field in fields:
+        s = '\n'
+        result = []
+        for field in fields:
+          try:
+            method_to_call = getattr(self, field[0])
+            result.append([field[1], str(method_to_call()), field[2]])
+          except:
+            pass
+        sf = SArray(result).unpack(column_name_prefix = "")
+        sf.rename({'0': 'item', '1':'value', '2': 'is exact'})
+        s += sf.__str__(footer=False)
+        s += "\n"
+
+        s += "\nMost frequent items:\n"
+        frequent = self.frequent_items()
+        # convert to string key
+        frequent_strkeys = {}
+        for key in frequent:
+            strkey = str(key)
+            if strkey in frequent_strkeys:
+                frequent_strkeys[strkey] += frequent[key]
+            else:
+                frequent_strkeys[strkey] = frequent[key]
+
+        sorted_freq = sorted(frequent_strkeys.items(), key=operator.itemgetter(1), reverse=True)
+        if len(sorted_freq) == 0:
+            s += " -- All elements appear with less than 0.01% frequency -- \n"
+        else:
+            sorted_freq = sorted_freq[:10]
+            sf = SFrame()
+            sf.add_column(SArray(['count']), 'value')
+            for elem in sorted_freq:
+                sf[elem[0]] = SArray([elem[1]])
+            s += sf.__str__(footer=False) + "\n"
+        s += "\n"
+
         try:
-          method_to_call = getattr(self, field[0])
-          result.append([field[1], str(method_to_call()), field[2]])
+            # print quantiles
+            self.quantile(0)   # XXX: is this necessary?
+            s += "Quantiles: \n"
+            sf = SFrame()
+            for q in [0.0,0.01,0.05,0.25,0.5,0.75,0.95,0.99,1.00]:
+                sf.add_column(SArray([self.quantile(q)]), f'{int(q * 100)}%')
+            s += sf.__str__(footer=False) + "\n"
         except:
           pass
-      sf = SArray(result).unpack(column_name_prefix = "")
-      sf.rename({'0': 'item', '1':'value', '2': 'is exact'})
-      s += sf.__str__(footer=False)
-      s += "\n"
 
-      s += "\nMost frequent items:\n"
-      frequent = self.frequent_items()
-      # convert to string key
-      frequent_strkeys = {}
-      for key in frequent:
-          strkey = str(key)
-          if strkey in frequent_strkeys:
-              frequent_strkeys[strkey] += frequent[key]
-          else:
-              frequent_strkeys[strkey] = frequent[key]
+        try:
+          t_k = self.dict_key_summary()
+          t_v = self.dict_value_summary()
+          s += "\n******** Dictionary Element Key Summary ********\n"
+          s += t_k.__repr__()
+          s += "\n******** Dictionary Element Value Summary ********\n"
+          s += t_v.__repr__() + '\n'
+        except:
+          pass
 
-      sorted_freq = sorted(frequent_strkeys.items(), key=operator.itemgetter(1), reverse=True)
-      if len(sorted_freq) == 0:
-          s += " -- All elements appear with less than 0.01% frequency -- \n"
-      else:
-          sorted_freq = sorted_freq[:10]
-          sf = SFrame()
-          sf.add_column(SArray(['count']), 'value')
-          for elem in sorted_freq:
-              sf[elem[0]] = SArray([elem[1]])
-          s += sf.__str__(footer=False) + "\n"
-      s += "\n"
+        try:
+          t_k = self.element_summary()
+          s += "\n******** Element Summary ********\n"
+          s += t_k.__repr__() + '\n'
+        except:
+          pass
 
-      try:
-        # print quantiles
-        self.quantile(0)   # XXX: is this necessary?
-        s += "Quantiles: \n"
-        sf = SFrame()
-        for q in [0.0,0.01,0.05,0.25,0.5,0.75,0.95,0.99,1.00]:
-          sf.add_column(SArray([self.quantile(q)]), str(int(q * 100)) + '%')
-        s += sf.__str__(footer=False) + "\n"
-      except:
-        pass
-
-      try:
-        t_k = self.dict_key_summary()
-        t_v = self.dict_value_summary()
-        s += "\n******** Dictionary Element Key Summary ********\n"
-        s += t_k.__repr__()
-        s += "\n******** Dictionary Element Value Summary ********\n"
-        s += t_v.__repr__() + '\n'
-      except:
-        pass
-
-      try:
-        t_k = self.element_summary()
-        s += "\n******** Element Summary ********\n"
-        s += t_k.__repr__() + '\n'
-      except:
-        pass
-
-      return s.expandtabs(8)
+        return s.expandtabs(8)
 
     def __str__(self):
         """
@@ -716,31 +716,24 @@ class Sketch(object):
          +-----+-----+-----+-----+-----+-----+-----+-----+------+}
         """
         single_val = False
-        if keys == None:
+        if keys is None:
             keys = []
         else:
             if not isinstance(keys, list):
                 single_val = True
                 keys = [keys]
-            value_types = set([type(i) for i in keys])
+            value_types = {type(i) for i in keys}
             if (len(value_types) > 1):
                 raise ValueError("All keys should have the same type.")
 
         with cython_context():
             ret_sketches = self.__proxy__.element_sub_sketch(keys)
-            ret = {}
-
             # check return key matches input key
             for key in keys:
               if key not in ret_sketches:
                 raise KeyError("Cannot retrieve element sub sketch for key '" + str(key) + "'. Element sub sketch can only be retrieved when the sketch_summary object was created using the 'sub_sketch_keys' option.")
-            for key in ret_sketches:
-                ret[key] = Sketch(_proxy = ret_sketches[key])
-
-            if single_val:
-                return ret[keys[0]]
-            else:
-                return ret
+            ret = {key: Sketch(_proxy = ret_sketches[key]) for key in ret_sketches}
+            return ret[keys[0]] if single_val else ret
 
     def cancel(self):
       """

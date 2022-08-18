@@ -84,11 +84,7 @@ class VariantCheckTest(unittest.TestCase):
 
         def _make(depth):
 
-            if depth == 0:
-                s = random.randint(0, 3)
-            else:
-                s = random.randint(0, 5)
-
+            s = random.randint(0, 3) if depth == 0 else random.randint(0, 5)
             if s == 0:
                 return str(random.randint(0, 100))
             elif s == 1:
@@ -112,7 +108,7 @@ class VariantCheckTest(unittest.TestCase):
 
         for depth in [2,3,4,5,10]:
             for i in range(10):
-                
+
                 A.flextype_encodable = True
 
                 obj = _make(depth)

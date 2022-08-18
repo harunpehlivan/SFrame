@@ -30,10 +30,7 @@ class image_info:
             self.format = 'PNG'
         elif 'jpg' in url:
             self.format = 'JPG'
-        if 'grey' in url:
-            self.channels = 1
-        else:
-            self.channels = 3
+        self.channels = 1 if 'grey' in url else 3
 
 current_file_dir = os.path.dirname(os.path.realpath(__file__))
 image_urls = [current_file_dir + x for x in [

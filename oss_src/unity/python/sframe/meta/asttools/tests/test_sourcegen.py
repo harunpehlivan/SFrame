@@ -21,19 +21,19 @@ def simple_expr(expr):
 
 def bin_op(op):
     def test_bin_op(self):
-        self.assertSame('(a %s b)' % (op,))
+        self.assertSame(f'(a {op} b)')
 
     return test_bin_op
 
 def unary_op(op):
     def test_bin_op(self):
-        self.assertSame('(%sb)' % (op,))
+        self.assertSame(f'({op}b)')
 
     return test_bin_op
 
 def aug_assign(op):
     def test_bin_op(self):
-        self.assertSame('a %s= b' % (op,))
+        self.assertSame(f'a {op}= b')
 
     return test_bin_op
 

@@ -104,7 +104,8 @@ def set_windows_dll_path():
         kernel32.SetDllDirectoryW(lib_path)
     except Exception as e:
         logging.getLogger(__name__).warning(
-            "Error setting DLL load orders: %s (things should still work)." % str(e))
+            f"Error setting DLL load orders: {str(e)} (things should still work)."
+        )
 
 
 def get_current_platform_dll_extension():
@@ -129,7 +130,7 @@ def test_pylambda_worker():
     import os
 
     environment = os.environ.copy()
-    
+
     from os.path import join
     from os.path import exists
     import tempfile
@@ -140,33 +141,30 @@ def test_pylambda_worker():
     import sys
     # change the temp directory to /tmp.
     # Otherwise we get interesting zeromq "too long file name" issues.
-    if sys.platform == 'darwin':
-        if exists('/tmp'):
-            tempfile.tempdir = '/tmp'
+    if sys.platform == 'darwin' and exists('/tmp'):
+        tempfile.tempdir = '/tmp'
 
     temp_dir = tempfile.mkdtemp()
 
     temp_dir_sim = join(temp_dir, "simulated")
-    os.mkdir(temp_dir_sim)    
+    os.mkdir(temp_dir_sim)
     lambda_log_file_sym = join(temp_dir_sim, "lambda_log")
 
     # Dump the directory structure.
     print("\nGathering installation information.")
     dir_structure_file = join(temp_dir, "dir_structure.log")
-    dir_structure_out = open(dir_structure_file, "w")
-    dump_directory_structure(dir_structure_out)
-    dir_structure_out.close()
-    
+    with open(dir_structure_file, "w") as dir_structure_out:
+        dump_directory_structure(dir_structure_out)
     print("\nRunning simulation.")
-    
+
     env=make_unity_server_env()
     env["GRAPHLAB_LAMBDA_WORKER_DEBUG_MODE"] = "1"
     env["GRAPHLAB_LAMBDA_WORKER_LOG_FILE"] = lambda_log_file_sym
-    
+
     proc = subprocess.Popen(
             [sys.executable, os.path.abspath(_pylambda_worker.__file__)],
             env = env)
-    
+
     proc.wait()
 
     ################################################################################
@@ -181,12 +179,12 @@ def test_pylambda_worker():
     trial_temp_dir = join(temp_dir, "full_run")
     os.mkdir(trial_temp_dir)
     lambda_log_file_run = join(trial_temp_dir, "lambda_log.log")
-    
+
     run_temp_dir = join(trial_temp_dir, "run_temp_dir")
     os.mkdir(run_temp_dir)
 
     run_temp_dir_copy = join(temp_dir, "run_temp_dir_copy")
-    
+
     run_info_dict = {
         "lambda_log" : lambda_log_file_run,
         "temp_dir" : trial_temp_dir,
@@ -194,7 +192,7 @@ def test_pylambda_worker():
         "preserved_temp_dir" : run_temp_dir_copy,
         "runtime_log" : join(trial_temp_dir, "runtime.log"),
         "sys_path_log" : join(trial_temp_dir, "sys_path_2.log")}
-        
+
     run_script = r"""
 import os
 import traceback
@@ -315,27 +313,27 @@ for f in server_logs:
             stdout = open(log_file_stdout, "w"),
             stderr = open(log_file_stderr, "w"),
             env = env)
-    
+
     proc.wait()
 
     # Now zip up the output data into a package we can access.
     timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
     zipfile_name = join(temp_dir, "testing_logs-%d-%s.zip" % (os.getpid(), timestamp))
 
-    print("Creating archive of log files in %s." % zipfile_name)
+    print(f"Creating archive of log files in {zipfile_name}.")
 
     save_files = []
 
     for root, dirs, files in os.walk(temp_dir):
         save_files += [join(root, name) for name in files]
-    
+
     with zipfile.ZipFile(zipfile_name, 'w') as logzip:
         error_logs = []
         for f in save_files:
             try:
                 logzip.write(f)
             except Exception as e:
-                error_logs.append("%s: error = %s" % (f, repr(e)))
+                error_logs.append(f"{f}: error = {repr(e)}")
 
         if error_logs:
             error_log_file = join(temp_dir, "archive_errors.log")
@@ -344,7 +342,7 @@ for f in server_logs:
 
     print("################################################################################")
     print("#   ")
-    print("#   Results of lambda test logged as %s." % zipfile_name)
+    print(f"#   Results of lambda test logged as {zipfile_name}.")
     print("#   ")
     print("################################################################################")
 
@@ -385,13 +383,15 @@ def dump_directory_structure(out = sys.stdout):
                 visited_files.append( (name, "ERROR calling os.lstat.") )
 
     def strip_name(n):
-        if n[:len(main_dir)] == main_dir:
-            return "<root>/" + n[len(main_dir):]
-        else:
-            return n
+        return f"<root>/{n[len(main_dir):]}" if n[:len(main_dir)] == main_dir else n
 
-    out.write("\n".join( ("  %s: %s" % (strip_name(name), stats))
-                     for name, stats in sorted(visited_files)))
+    out.write(
+        "\n".join(
+            f"  {strip_name(name)}: {stats}"
+            for name, stats in sorted(visited_files)
+        )
+    )
+
 
     out.flush()
 
@@ -417,7 +417,10 @@ def get_hadoop_class_path():
         global __hadoop_class_warned
         if not __hadoop_class_warned:
             __hadoop_class_warned = True
-            logging.getLogger(__name__).debug("Exception trying to retrieve Hadoop classpath: %s" % e)
+            logging.getLogger(__name__).debug(
+                f"Exception trying to retrieve Hadoop classpath: {e}"
+            )
+
 
     logging.getLogger(__name__).debug("Hadoop not found. HDFS url is not supported. Please make hadoop available from PATH or set the environment variable HADOOP_HOME.")
     return ""
@@ -440,7 +443,7 @@ def _get_expanded_classpath(classpath):
     #  recombined back into a colon separated list of jar paths, removing dupes and using full file paths
     jars = (os.path.pathsep).join((os.path.pathsep).join([os.path.abspath(jarpath) for jarpath in _glob.glob(path)])
                     for path in classpath.split(os.path.pathsep))
-    logging.getLogger(__name__).debug('classpath being used: %s' % jars)
+    logging.getLogger(__name__).debug(f'classpath being used: {jars}')
     return jars
 
 def get_library_name():
@@ -469,7 +472,7 @@ def get_config_file():
 
     assert __lib_name in ["sframe", "graphlab"]
 
-    __default_config_path = join(expanduser("~"), ".%s" % __lib_name, "config")
+    __default_config_path = join(expanduser("~"), f".{__lib_name}", "config")
 
     if "GRAPHLAB_CONFIG_FILE" in os.environ:
         __default_config_path = abspath(expanduser(os.environ["GRAPHLAB_CONFIG_FILE"]))

@@ -47,9 +47,8 @@ class debug_trace(object):
             if not self.show_cython_trace:
                 # To hide cython trace, we re-raise from here
                 raise exc_type(exc_value)
-            else:
-                # To show the full trace, we do nothing and let exception propagate
+            # To show the full trace, we do nothing and let exception propagate
 
-                # In verbose mode we print the server log
-                if self.show_server_log:
-                    print(self._fetch_unity_log())
+            # In verbose mode we print the server log
+            if self.show_server_log:
+                print(self._fetch_unity_log())

@@ -82,7 +82,7 @@ class Vertex(object):
         """__init__(self, vid, attr={})
         Construct a new vertex.
         """
-        if not _series is None:
+        if _series is not None:
             self.vid = _series[_VID_COLUMN]
             self.attr = _series.to_dict()
             self.attr.pop(_VID_COLUMN)
@@ -91,10 +91,10 @@ class Vertex(object):
             self.attr = attr
 
     def __repr__(self):
-        return "V(" + str(self.vid) + ", " + str(self.attr) + ")"
+        return f"V({str(self.vid)}, {str(self.attr)})"
 
     def __str__(self):
-        return "V(" + str(self.vid) + ", " + str(self.attr) + ")"
+        return f"V({str(self.vid)}, {str(self.attr)})"
 
 
 class Edge(object):
@@ -137,7 +137,7 @@ class Edge(object):
         """__init__(self, vid, attr={})
         Construct a new edge.
         """
-        if not _series is None:
+        if _series is not None:
             self.src_vid = _series[_SRC_VID_COLUMN]
             self.dst_vid = _series[_DST_VID_COLUMN]
             self.attr = _series.to_dict()
@@ -149,12 +149,14 @@ class Edge(object):
             self.attr = attr
 
     def __repr__(self):
-        return ("E(" + str(self.src_vid) + " -> " + str(self.dst_vid) + ", " +
-                str(self.attr) + ")")
+        return (
+            f"E({str(self.src_vid)} -> {str(self.dst_vid)}, " + str(self.attr)
+        ) + ")"
 
     def __str__(self):
-        return ("E(" + str(self.src_vid) + " -> " + str(self.dst_vid) + ", " +
-                str(self.attr) + ")")
+        return (
+            f"E({str(self.src_vid)} -> {str(self.dst_vid)}, " + str(self.attr)
+        ) + ")"
 
 
 class SGraph(object):
@@ -258,7 +260,7 @@ class SGraph(object):
 
     def __str__(self):
         """Returns a readable string representation summarizing the graph."""
-        return "SGraph(%s)" % str(self.summary())
+        return f"SGraph({str(self.summary())})"
 
     def __repr__(self):
         """Returns a readable string representation summarizing the graph."""
@@ -465,17 +467,16 @@ class SGraph(object):
         with cython_context():
             sf = SFrame(_proxy=self.__proxy__.get_vertices(ids, fields))
 
-        if (format == 'sframe'):
-            return sf
-        elif (format == 'dataframe'):
+        if format == 'dataframe':
             assert HAS_PANDAS, 'Cannot use dataframe because Pandas is not available or version is too low.'
             if sf.num_rows() == 0:
                 return pd.DataFrame()
-            else:
-                df = sf.head(sf.num_rows()).to_dataframe()
-                return df.set_index('__id')
-        elif (format == 'list'):
+            df = sf.head(sf.num_rows()).to_dataframe()
+            return df.set_index('__id')
+        elif format == 'list':
             return _dataframe_to_vertex_list(sf.to_dataframe())
+        elif format == 'sframe':
+            return sf
         else:
             raise ValueError("Invalid format specifier")
 
@@ -577,13 +578,15 @@ class SGraph(object):
 
         if (format == 'sframe'):
             return sf
-        if (format == 'dataframe'):
+        if format == 'dataframe':
             assert HAS_PANDAS, 'Cannot use dataframe because Pandas is not available or version is too low.'
-            if sf.num_rows() == 0:
-                return pd.DataFrame()
-            else:
-                return sf.head(sf.num_rows()).to_dataframe()
-        elif (format == 'list'):
+            return (
+                pd.DataFrame()
+                if sf.num_rows() == 0
+                else sf.head(sf.num_rows()).to_dataframe()
+            )
+
+        elif format == 'list':
             return _dataframe_to_edge_list(sf.to_dataframe())
         else:
             raise ValueError("Invalid format specifier")
@@ -843,7 +846,7 @@ class SGraph(object):
 
         if (type(fields) is str):
             fields = [fields]
-        if not isinstance(fields, list) or not all(type(x) is str for x in fields):
+        if not isinstance(fields, list) or any(type(x) is not str for x in fields):
             raise TypeError('\"fields\" must be a str or list[str]')
 
         vfields = self.__proxy__.get_vertex_fields()
@@ -971,9 +974,13 @@ class SGraph(object):
         '''
 
         assert inspect.isfunction(triple_apply_fn), "Input must be a function"
-        if not (type(mutated_fields) is list or type(mutated_fields) is str):
+        if type(mutated_fields) is not list and type(mutated_fields) is not str:
             raise TypeError('mutated_fields must be str or list of str')
-        if not (input_fields is None or type(input_fields) is list or type(input_fields) is str):
+        if (
+            input_fields is not None
+            and type(input_fields) is not list
+            and type(input_fields) is not str
+        ):
             raise TypeError('input_fields must be str or list of str')
         if type(mutated_fields) == str:
             mutated_fields = [mutated_fields]
@@ -981,12 +988,12 @@ class SGraph(object):
             raise ValueError('mutated_fields cannot be empty')
         for f in ['__id', '__src_id', '__dst_id']:
             if f in mutated_fields:
-                raise ValueError('mutated_fields cannot contain %s' % f)
+                raise ValueError(f'mutated_fields cannot contain {f}')
 
         all_fields = self.get_fields()
         if not set(mutated_fields).issubset(set(all_fields)):
             extra_fields = list(set(mutated_fields).difference(set(all_fields)))
-            raise ValueError('graph does not contain fields: %s' % str(extra_fields))
+            raise ValueError(f'graph does not contain fields: {extra_fields}')
 
         # select input fields
         if input_fields is None:
@@ -1051,11 +1058,7 @@ class SGraph(object):
         """
 
         if format is 'auto':
-            if filename.endswith(('.json', '.json.gz')):
-                format = 'json'
-            else:
-                format = 'binary'
-
+            format = 'json' if filename.endswith(('.json', '.json.gz')) else 'binary'
         if format not in ['binary', 'json', 'csv']:
             raise ValueError('Invalid format: %s. Supported formats are: %s'
                              % (format, ['binary', 'json', 'csv']))
@@ -1237,12 +1240,12 @@ class SGraph(object):
         verts = ids
 
         ## find the vertices within radius (and the path edges)
-        for i in range(radius):
+        for _ in range(radius):
             edges_out = self.get_edges(src_ids=verts)
             edges_in = self.get_edges(dst_ids=verts)
 
             verts = list(edges_in['__src_id']) + list(edges_in['__dst_id']) + \
-                list(edges_out['__src_id']) + list(edges_out['__dst_id'])
+                    list(edges_out['__src_id']) + list(edges_out['__dst_id'])
             verts = list(set(verts))
 
         ## make a new graph to return and add the vertices
@@ -1322,8 +1325,8 @@ def load_sgraph(filename, format='binary', delimiter='auto'):
     """
 
 
-    if not format in ['binary', 'snap', 'csv', 'tsv']:
-        raise ValueError('Invalid format: %s' % format)
+    if format not in ['binary', 'snap', 'csv', 'tsv']:
+        raise ValueError(f'Invalid format: {format}')
 
     with cython_context():
         g = None
@@ -1384,7 +1387,7 @@ def _vertex_list_to_sframe(ls, id_column_name):
             sf[col] = [val]
 
     else:
-        raise TypeError('Vertices type {} is Not supported.'.format(type(ls)))
+        raise TypeError(f'Vertices type {type(ls)} is Not supported.')
 
     return sf
 
@@ -1419,7 +1422,7 @@ def _edge_list_to_sframe(ls, src_column_name, dst_column_name):
         sf[dst_column_name] = [ls.dst_vid]
 
     else:
-        raise TypeError('Edges type {} is Not supported.'.format(type(ls)))
+        raise TypeError(f'Edges type {type(ls)} is Not supported.')
 
     return sf
 
@@ -1429,10 +1432,12 @@ def _dataframe_to_vertex_list(df):
     """
     cols = df.columns
     if len(cols):
-        assert _VID_COLUMN in cols, "Vertex DataFrame must contain column %s" % _VID_COLUMN
+        assert (
+            _VID_COLUMN in cols
+        ), f"Vertex DataFrame must contain column {_VID_COLUMN}"
+
         df = df[cols].T
-        ret = [Vertex(None, _series=df[col]) for col in df]
-        return ret
+        return [Vertex(None, _series=df[col]) for col in df]
     else:
         return []
 
@@ -1443,11 +1448,16 @@ def _dataframe_to_edge_list(df):
     """
     cols = df.columns
     if len(cols):
-        assert _SRC_VID_COLUMN in cols, "Vertex DataFrame must contain column %s" % _SRC_VID_COLUMN
-        assert _DST_VID_COLUMN in cols, "Vertex DataFrame must contain column %s" % _DST_VID_COLUMN
+        assert (
+            _SRC_VID_COLUMN in cols
+        ), f"Vertex DataFrame must contain column {_SRC_VID_COLUMN}"
+
+        assert (
+            _DST_VID_COLUMN in cols
+        ), f"Vertex DataFrame must contain column {_DST_VID_COLUMN}"
+
         df = df[cols].T
-        ret = [Edge(None, None, _series=df[col]) for col in df]
-        return ret
+        return [Edge(None, None, _series=df[col]) for col in df]
     else:
         return []
 
@@ -1467,34 +1477,33 @@ def _vertex_data_to_sframe(data, vid_field):
         data_copy.rename({vid_field: _VID_COLUMN})
         return data_copy
 
-    if type(data) == Vertex or type(data) == list:
+    if type(data) in [Vertex, list]:
         return _vertex_list_to_sframe(data, '__id')
 
     elif HAS_PANDAS and type(data) == pd.DataFrame:
         if vid_field is None:
-            # using the dataframe index as vertex id
-            if data.index.is_unique:
-                if not ("index" in data.columns):
-                    # pandas reset_index() will insert a new column of name "index".
-                    sf = SFrame(data.reset_index())  # "index"
-                    sf.rename({'index': _VID_COLUMN})
-                    return sf
-                else:
-                    # pandas reset_index() will insert a new column of name "level_0" if there exists a column named "index".
-                    sf = SFrame(data.reset_index())  # "level_0"
-                    sf.rename({'level_0': _VID_COLUMN})
-                    return sf
-            else:
+            if not data.index.is_unique:
                 raise ValueError("Index of the vertices dataframe is not unique, \
                         try specifying vid_field name to use a column for vertex ids.")
+            if "index" not in data.columns:
+                # pandas reset_index() will insert a new column of name "index".
+                sf = SFrame(data.reset_index())  # "index"
+                sf.rename({'index': _VID_COLUMN})
+            else:
+                # pandas reset_index() will insert a new column of name "level_0" if there exists a column named "index".
+                sf = SFrame(data.reset_index())  # "level_0"
+                sf.rename({'level_0': _VID_COLUMN})
         else:
             sf = SFrame(data)
             if _VID_COLUMN in sf.column_names():
-                raise ValueError('%s reserved vid column name already exists in the SFrame' % _VID_COLUMN)
+                raise ValueError(
+                    f'{_VID_COLUMN} reserved vid column name already exists in the SFrame'
+                )
+
             sf.rename({vid_field: _VID_COLUMN})
-            return sf
+        return sf
     else:
-        raise TypeError('Vertices type %s is Not supported.' % str(type(data)))
+        raise TypeError(f'Vertices type {str(type(data))} is Not supported.')
 
 
 def _edge_data_to_sframe(data, src_field, dst_field):
@@ -1550,7 +1559,7 @@ def _edge_data_to_sframe(data, src_field, dst_field):
         return _edge_list_to_sframe(data, _SRC_VID_COLUMN, _DST_VID_COLUMN)
 
     else:
-        raise TypeError('Edges type %s is Not supported.' % str(type(data)))
+        raise TypeError(f'Edges type {str(type(data))} is Not supported.')
 
 ## Hack: overriding GFrame class name to make it appears as SFrame##
 GFrame.__name__ = SFrame.__name__

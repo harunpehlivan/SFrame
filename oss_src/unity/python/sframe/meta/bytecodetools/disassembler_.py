@@ -34,30 +34,22 @@ def disassembler(co, lasti= -1):
     while i < n:
         c = code[i]
         op = co_ord(c)
-    
-    
+
+
         if i in linestarts:
             lineno = linestarts[i]
 
         instr = Instruction(i=i, op=op, lineno=lineno)
         instr.linestart = i in linestarts
 
-        if i == lasti:
-            instr.lasti = True
-        else:
-            instr.lasti = False
-
-        if i in labels:
-            instr.label = True
-        else:
-            instr.label = False
-
-        i = i + 1
+        instr.lasti = i == lasti
+        instr.label = i in labels
+        i += 1
         if op >= opcode.HAVE_ARGUMENT:
             oparg = co_ord(code[i]) + co_ord(code[i + 1]) * 256 + extended_arg
             instr.oparg = oparg
             extended_arg = 0
-            i = i + 2
+            i += 2
             if op == opcode.EXTENDED_ARG:
                 extended_arg = oparg * 65536
             instr.extended_arg = extended_arg

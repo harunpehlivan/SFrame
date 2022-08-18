@@ -319,7 +319,7 @@ class SArray(object):
         if dtype is not None and type(dtype) != type:
             raise TypeError('dtype must be a type, e.g. use int rather than \'int\'')
 
-        if (_proxy):
+        if _proxy:
             self.__proxy__ = _proxy
         elif type(data) == SArray:
             self.__proxy__ = data.__proxy__
@@ -357,10 +357,7 @@ class SArray(object):
                         dtype = infer_type_of_sequence(data)
                     if len(data.shape) == 2:
                         # we need to make it an array or a list
-                        if dtype == float or dtype == int:
-                            dtype = array.array
-                        else:
-                            dtype = list
+                        dtype = array.array if dtype in [float, int] else list
                     elif len(data.shape) > 2:
                         raise TypeError("Cannot convert Numpy arrays of greater than 2 dimensions")
 
@@ -392,8 +389,8 @@ class SArray(object):
                     self.__proxy__.load_from_iterable(data, dtype, ignore_cast_failure)
             else:
                 raise TypeError("Unexpected data source. " \
-                                "Possible data source types are: list, " \
-                                "numpy.ndarray, pandas.Series, and string(url)")
+                                    "Possible data source types are: list, " \
+                                    "numpy.ndarray, pandas.Series, and string(url)")
 
     @classmethod
     def date_range(cls,start_time,end_time,freq):
@@ -470,7 +467,7 @@ class SArray(object):
         """
         assert isinstance(size, (int, long)) and size >= 0, "size must be a positive int"
         if not isinstance(value, (type(None), int, float, str, array.array, list, dict, datetime.datetime)):
-            raise TypeError('Cannot create sarray of value type %s' % str(type(value)))
+            raise TypeError(f'Cannot create sarray of value type {str(type(value))}')
         proxy = UnitySArrayProxy(glconnect.get_client())
         proxy.load_from_const(value, size, dtype)
         return cls(_proxy=proxy)
@@ -526,8 +523,7 @@ class SArray(object):
             size = stop - start
             # this matches the behavior of range
             # i.e. range(100,10) just returns an empty array
-            if (size < 0):
-                size = 0
+            size = max(size, 0)
             return _create_sequential_sarray(size, start)
 
     @classmethod
@@ -632,12 +628,10 @@ class SArray(object):
             if dtype is None:
                 if istrue is None:
                     dtype = type(isfalse)
-                elif isfalse is None:
+                elif isfalse is None or type(istrue) == type(isfalse):
                     dtype = type(istrue)
-                elif type(istrue) != type(isfalse):
+                else:
                     raise TypeError("true and false inputs are of different types")
-                elif type(istrue) == type(isfalse):
-                    dtype = type(istrue)
             if dtype is None:
                 raise TypeError("Both true and false are None. Resultant type cannot be inferred.")
             istrue = cls(_proxy=condition.__proxy__.to_const(istrue, dtype))
@@ -697,29 +691,26 @@ class SArray(object):
         """
         from .sframe import SFrame as _SFrame
 
-        if format == None:
-            if filename.endswith(('.csv', '.csv.gz', 'txt')):
-                format = 'text'
-            else:
-                format = 'binary'
+        if format is None:
+            format = 'text' if filename.endswith(('.csv', '.csv.gz', 'txt')) else 'binary'
         if format == 'binary':
             with cython_context():
                 self.__proxy__.save(_make_internal_url(filename))
-        elif format == 'text' or format == 'csv':
+        elif format in ['text', 'csv']:
             sf = _SFrame({'X1':self})
             with cython_context():
                 sf.__proxy__.save_as_csv(_make_internal_url(filename), {'header':False})
         else:
-            raise ValueError("Unsupported format: {}".format(format))
+            raise ValueError(f"Unsupported format: {format}")
 
     def __repr__(self):
         """
         Returns a string description of the SArray.
         """
         data_str = self.__str__()
-        ret = "dtype: " + str(self.dtype().__name__) + "\n"
+        ret = f"dtype: {str(self.dtype().__name__)}" + "\n"
         if (self.__has_size__()):
-            ret = ret + "Rows: " + str(self.size()) + "\n"
+            ret = f"{ret}Rows: {str(self.size())}" + "\n"
         else:
             ret = ret + "Rows: ?\n"
         ret = ret + data_str
@@ -733,16 +724,15 @@ class SArray(object):
         # If sarray is image, take head of elements casted to string.
         if self.dtype() == _Image:
             headln = str(list(self.astype(str).head(100)))
+        elif sys.version_info.major < 3:
+            headln = str(list(self.head(100)))
+            headln = unicode(headln.decode('string_escape'),'utf-8',errors='replace').encode('utf-8')
         else:
-            if sys.version_info.major < 3:
-                headln = str(list(self.head(100)))
-                headln = unicode(headln.decode('string_escape'),'utf-8',errors='replace').encode('utf-8')
-            else:
-                headln = str(list(self.head(100)))
+            headln = str(list(self.head(100)))
         if (self.__proxy__.has_size() == False or self.size() > 100):
             # cut the last close bracket
             # and replace it with ...
-            headln = headln[0:-1] + ", ... ]"
+            headln = headln[:-1] + ", ... ]"
         return headln
 
     def __nonzero__(self):
@@ -775,10 +765,8 @@ class SArray(object):
             elems_at_a_time = 262144
             self.__proxy__.begin_iterator()
             ret = self.__proxy__.iterator_get_next(elems_at_a_time)
-            while(True):
-                for j in ret:
-                    yield j
-
+            while True:
+                yield from ret
                 if len(ret) == elems_at_a_time:
                     ret = self.__proxy__.iterator_get_next(elems_at_a_time)
                 else:
@@ -1416,9 +1404,9 @@ class SArray(object):
         Rows: 2
         [['a'], ['b']]
         """
-        if (self.dtype() != array.array) and (self.dtype() != list):
+        if self.dtype() not in [array.array, list]:
             raise RuntimeError("Only Vector type can be sliced")
-        if end == None:
+        if end is None:
             end = start + 1
 
         with cython_context():
@@ -1518,16 +1506,12 @@ class SArray(object):
         if (self.dtype() != str):
             raise TypeError("Only SArray of string type is supported for counting bag of words")
 
-        if (not all([len(delim) == 1 for delim in delimiters])):
+        if any(len(delim) != 1 for delim in delimiters):
             raise ValueError("Delimiters must be single-character strings")
 
 
         # construct options, will extend over time
-        options = dict()
-        options["to_lower"] = to_lower == True
-        # defaults to std::isspace whitespace delimiters if no others passed in
-        options["delimiters"] = delimiters
-
+        options = {"to_lower": to_lower == True, "delimiters": delimiters}
         with cython_context():
             return SArray(_proxy=self.__proxy__.count_bag_of_words(options))
 
@@ -1553,11 +1537,7 @@ class SArray(object):
 
 
         # construct options, will extend over time
-        options = dict()
-        options["to_lower"] = to_lower == True
-        options["ignore_space"] = ignore_space == True
-
-
+        options = {"to_lower": to_lower == True, "ignore_space": ignore_space == True}
         if method == "word":
             with cython_context():
                 return SArray(_proxy=self.__proxy__.count_ngrams(n, options))
@@ -1868,7 +1848,7 @@ class SArray(object):
         assert callable(fn), "Input function must be callable."
 
         dryrun = [fn(i) for i in self.head(100) if i is not None]
-        if dtype == None:
+        if dtype is None:
             dtype = infer_type_of_list(dryrun)
         if seed is None:
             seed = abs(hash("%0.20f" % time.time())) % (2 ** 31)
@@ -1963,7 +1943,7 @@ class SArray(object):
         [2, 6, 9]
         """
         if (fraction > 1 or fraction < 0):
-            raise ValueError('Invalid sampling rate: ' + str(fraction))
+            raise ValueError(f'Invalid sampling rate: {str(fraction)}')
         if (self.size() == 0):
             return SArray()
         if seed is None:
@@ -2159,7 +2139,7 @@ class SArray(object):
 
         if len(self) == 0:
             return None
-        if not any([isinstance(self[0], i) for i in [int,float,long]]):
+        if not any(isinstance(self[0], i) for i in [int, float, long]):
             raise TypeError("SArray must be of type 'int', 'long', or 'float'.")
 
         sf = _SFrame(self).add_row_number()
@@ -2191,7 +2171,7 @@ class SArray(object):
 
         if len(self) == 0:
             return None
-        if not any([isinstance(self[0], i) for i in [int,float,long]]):
+        if not any(isinstance(self[0], i) for i in [int, float, long]):
             raise TypeError("SArray must be of type 'int', 'long', or 'float'.")
 
         sf = _SFrame(self).add_row_number()
@@ -2231,11 +2211,10 @@ class SArray(object):
             across the input SArray.
         """
         with cython_context():
-            if self.dtype() == _Image:
-                from  .. import extensions
-                return extensions.generate_mean(self)
-            else:
+            if self.dtype() != _Image:
                 return self.__proxy__.mean()
+            from  .. import extensions
+            return extensions.generate_mean(self)
 
 
     def std(self, ddof=0):
@@ -2724,12 +2703,15 @@ class SArray(object):
             raise TypeError("sketch_summary() is not supported for arrays of image type")
         if (type(background) != bool):
             raise TypeError("'background' parameter has to be a boolean value")
-        if (sub_sketch_keys != None):
-            if (self.dtype() != dict and self.dtype() != array.array):
+        if sub_sketch_keys is None:
+            sub_sketch_keys = []
+
+        else:
+            if self.dtype() not in [dict, array.array]:
                 raise TypeError("sub_sketch_keys is only supported for SArray of dictionary or array type")
             if not _is_non_string_iterable(sub_sketch_keys):
                 sub_sketch_keys = [sub_sketch_keys]
-            value_types = set([type(i) for i in sub_sketch_keys])
+            value_types = {type(i) for i in sub_sketch_keys}
             if (len(value_types) != 1):
                 raise ValueError("sub_sketch_keys member values need to have the same type.")
             value_type = value_types.pop();
@@ -2738,9 +2720,6 @@ class SArray(object):
                     "For dictionary types, sketch summary is computed by casting keys to string values.")
             if (self.dtype() == array.array and value_type != int):
                 raise TypeError("Only int value(s) can be passed to sub_sketch_keys for SArray of array type")
-        else:
-            sub_sketch_keys = list()
-
         return Sketch(self, background, sub_sketch_keys = sub_sketch_keys)
 
     def append(self, other):
@@ -3028,7 +3007,7 @@ class SArray(object):
         if self.dtype() != datetime.datetime:
             raise TypeError("Only column of datetime type is supported.")
 
-        if column_name_prefix == None:
+        if column_name_prefix is None:
             column_name_prefix = ""
         if type(column_name_prefix) != str:
             raise TypeError("'column_name_prefix' must be a string")
@@ -3038,7 +3017,7 @@ class SArray(object):
             if not _is_non_string_iterable(limit):
                 raise TypeError("'limit' must be a list");
 
-            name_types = set([type(i) for i in limit])
+            name_types = {type(i) for i in limit}
             if (len(name_types) != 1):
                 raise TypeError("'limit' contains values that are different types")
 
@@ -3050,7 +3029,7 @@ class SArray(object):
 
         column_types = []
 
-        if(limit == None):
+        if limit is None:
             limit = ['year','month','day','hour','minute','second']
 
         column_types = [int] * len(limit)
@@ -3194,7 +3173,7 @@ class SArray(object):
         if self.dtype() not in [dict, array.array, list]:
             raise TypeError("Only SArray of dict/list/array type supports unpack")
 
-        if column_name_prefix == None:
+        if column_name_prefix is None:
             column_name_prefix = ""
         if type(column_name_prefix) != str:
             raise TypeError("'column_name_prefix' must be a string")
@@ -3204,7 +3183,7 @@ class SArray(object):
             if (not _is_non_string_iterable(limit)):
                 raise TypeError("'limit' must be a list");
 
-            name_types = set([type(i) for i in limit])
+            name_types = {type(i) for i in limit}
             if (len(name_types) != 1):
                 raise TypeError("'limit' contains values that are different types")
 
@@ -3215,7 +3194,31 @@ class SArray(object):
             if len(set(limit)) != len(limit):
                 raise ValueError("'limit' contains duplicate values")
 
-        if (column_types != None):
+        if column_types is None:
+            head_rows = self.head(100).dropna()
+            lengths = [len(i) for i in head_rows]
+            if not lengths or max(lengths) == 0:
+                raise RuntimeError("Cannot infer number of items from the SArray, SArray may be empty. please explicitly provide column types")
+
+            # infer column types for dict type at server side, for list and array, infer from client side
+            if self.dtype() != dict:
+                length = max(lengths)
+                if limit is None:
+                    limit = range(length)
+                else:
+                    # adjust the length
+                    length = len(limit)
+
+                if self.dtype() == array.array:
+                    column_types = [float for _ in range(length)]
+                else:
+                    column_types = []
+                    for i in limit:
+                        t = [(x[i] if ((x is not None) and len(x) > i) else None) for x in head_rows]
+                        column_types.append(infer_type_of_list(t))
+
+
+        else:
             if not _is_non_string_iterable(column_types):
                 raise TypeError("column_types must be a list");
 
@@ -3231,36 +3234,11 @@ class SArray(object):
             else:
                 limit = range(len(column_types))
 
-        else:
-            head_rows = self.head(100).dropna()
-            lengths = [len(i) for i in head_rows]
-            if len(lengths) == 0 or max(lengths) == 0:
-                raise RuntimeError("Cannot infer number of items from the SArray, SArray may be empty. please explicitly provide column types")
-
-            # infer column types for dict type at server side, for list and array, infer from client side
-            if self.dtype() != dict:
-                length = max(lengths)
-                if limit == None:
-                    limit = range(length)
-                else:
-                    # adjust the length
-                    length = len(limit)
-
-                if self.dtype() == array.array:
-                    column_types = [float for i in range(length)]
-                else:
-                    column_types = list()
-                    for i in limit:
-                        t = [(x[i] if ((x is not None) and len(x) > i) else None) for x in head_rows]
-                        column_types.append(infer_type_of_list(t))
-
-
         with cython_context():
-            if (self.dtype() == dict and column_types == None):
-                limit = limit if limit != None else []
-                return _SFrame(_proxy=self.__proxy__.unpack_dict(column_name_prefix.encode(), limit, na_value))
-            else:
+            if self.dtype() != dict or column_types is not None:
                 return _SFrame(_proxy=self.__proxy__.unpack(column_name_prefix.encode(), limit, column_types, na_value))
+            limit = limit if limit != None else []
+            return _SFrame(_proxy=self.__proxy__.unpack_dict(column_name_prefix.encode(), limit, na_value))
 
     def sort(self, ascending=True):
         """

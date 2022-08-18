@@ -18,10 +18,10 @@ import shutil
 
 os.chdir('cxxtest')
 for file in glob.glob('*.py'):
-    shutil.copyfile(file, '../python3/cxxtest/'+file)
+    shutil.copyfile(file, f'../python3/cxxtest/{file}')
 #
 os.chdir('../python3/cxxtest')
 #
 for file in glob.glob('*.py'):
-    subprocess.call('2to3 -w '+file, shell=True)
+    subprocess.call(f'2to3 -w {file}', shell=True)
 

@@ -104,9 +104,9 @@ class GFrame(SFrame):
         if not _is_non_string_iterable(namelist):
             raise TypeError("namelist must be an iterable")
 
-        if not all([isinstance(x, SArray) for x in datalist]):
+        if not all(isinstance(x, SArray) for x in datalist):
             raise TypeError("Must give column as SArray")
-        if not all([isinstance(x, str) for x in namelist]):
+        if not all(isinstance(x, str) for x in namelist):
             raise TypeError("Invalid column name in list: must all be str")
         for (data, name) in zip(datalist, namelist):
             self.add_column(data, name)
@@ -121,7 +121,7 @@ class GFrame(SFrame):
             The name of the column to remove.
         """
         if name not in self.column_names():
-            raise KeyError('Cannot find column %s' % name)
+            raise KeyError(f'Cannot find column {name}')
         self.__is_dirty__ = True
         try:
             with cython_context():
@@ -187,7 +187,7 @@ class GFrame(SFrame):
             raise TypeError("Must give column_name as str")
 
         if column_name in self.column_names():
-            raise RuntimeError("Column name %s already exists" % str(column_name))
+            raise RuntimeError(f"Column name {str(column_name)} already exists")
 
         if type(start) is not int:
             raise TypeError("Must give start as int")
@@ -210,9 +210,8 @@ class GFrame(SFrame):
         if (key in ['__id', '__src_id', '__dst_id']):
             raise KeyError('Cannot modify column %s. Changing __id column will\
                     change the graph structure' % key)
-        else:
-            self.__is_dirty__ = True
-            super(GFrame, self).__setitem__(key, value)
+        self.__is_dirty__ = True
+        super(GFrame, self).__setitem__(key, value)
 
 #/**************************************************************************/
 #/*                                                                        */

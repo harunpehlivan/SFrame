@@ -29,14 +29,14 @@ def scanInputFiles(files, _options):
     suites=[]
     for file in files:
         try:
-            print("Parsing file "+file, end=' ')
+            print(f"Parsing file {file}", end=' ')
             sys.stdout.flush()
             parse_info = cxx_parser.parse_cpp(filename=file,optimize=1)
         except IOError as err:
             print(" error.")
-            print(str(err))
+            print(err)
             continue
-        print("done.") 
+        print("done.")
         sys.stdout.flush()
         #
         # WEH: see if it really makes sense to use parse information to
@@ -51,47 +51,46 @@ def scanInputFiles(files, _options):
         for key in keys:
             if parse_info.index[key].scope_t == "class" and parse_info.is_baseclass(key,"CxxTest::TestSuite"):
                 name=parse_info.index[key].name
-                if key.startswith('::'):
-                    fullname = key[2:]
-                else:
-                    fullname = key
-                suite = { 
-                        'fullname'     : fullname,
-                        'name'         : name,
-                        'file'         : file,
-                        'cfile'        : cstr(file),
-                        'line'         : str(parse_info.index[key].lineno),
-                        'generated'    : 0,
-                        'object'       : 'suite_%s' % fullname.replace('::','_'),
-                        'dobject'      : 'suiteDescription_%s' % fullname.replace('::','_'),
-                        'tlist'        : 'Tests_%s' % fullname.replace('::','_'),
-                        'tests'        : [],
-                        'lines'        : [] }
+                fullname = key[2:] if key.startswith('::') else key
+                suite = {
+                    'fullname': fullname,
+                    'name': name,
+                    'file': file,
+                    'cfile': cstr(file),
+                    'line': str(parse_info.index[key].lineno),
+                    'generated': 0,
+                    'object': f"suite_{fullname.replace('::', '_')}",
+                    'dobject': f"suiteDescription_{fullname.replace('::', '_')}",
+                    'tlist': f"Tests_{fullname.replace('::', '_')}",
+                    'tests': [],
+                    'lines': [],
+                }
+
                 for fn in parse_info.get_functions(key,quiet=True):
                     tname = fn[0]
                     lineno = str(fn[1])
                     if tname.startswith('createSuite'):
                         # Indicate that we're using a dynamically generated test suite
-                        suite['create'] = str(lineno) # (unknown line)
+                        suite['create'] = lineno
                     if tname.startswith('destroySuite'):
                         # Indicate that we're using a dynamically generated test suite
-                        suite['destroy'] = str(lineno) # (unknown line)
+                        suite['destroy'] = lineno
                     if not tpat.match(tname):
                         # Skip non-test methods
                         continue
-                    test = { 'name'   : tname,
-                        'suite'  : suite,
-                        'class'  : 'TestDescription_suite_%s_%s' % (suite['fullname'].replace('::','_'), tname),
-                        'object' : 'testDescription_suite_%s_%s' % (suite['fullname'].replace('::','_'), tname),
-                        'line'   : lineno,
-                        }
+                    test = {
+                        'name': tname,
+                        'suite': suite,
+                        'class': f"TestDescription_suite_{suite['fullname'].replace('::', '_')}_{tname}",
+                        'object': f"testDescription_suite_{suite['fullname'].replace('::', '_')}_{tname}",
+                        'line': lineno,
+                    }
+
                     suite['tests'].append(test)
                 suites.append(suite)
 
     if not _options.root:
-        ntests = 0
-        for suite in suites:
-            ntests += len(suite['tests'])
+        ntests = sum(len(suite['tests']) for suite in suites)
         if ntests == 0:
             abort( 'No tests defined' )
     #

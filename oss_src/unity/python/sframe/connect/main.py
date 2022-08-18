@@ -168,8 +168,10 @@ def _assign_server_and_client(server, client):
     __SERVER__ = server
     __CLIENT__ = client
     __UNITY_GLOBAL_PROXY__ = UnityGlobalProxy(__CLIENT__)
-    server.get_logger().info('SFrame v%s started. Logging %s' %
-                             (UnityGlobalProxy(client).get_version(), server.unity_log))
+    server.get_logger().info(
+        f'SFrame v{UnityGlobalProxy(client).get_version()} started. Logging {server.unity_log}'
+    )
+
 
     from ..extensions import _publish
     _publish()

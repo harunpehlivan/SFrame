@@ -17,7 +17,7 @@ class Python2(object):
 
 def py3op(func):
     if py3:
-        
+
         func.py2op = lambda _:func
         return func
     else:
@@ -33,8 +33,7 @@ class Python3(object):
         return func
 
 def py2op(func):
-    if not py3:
-        func.py3op = lambda _:func
-        return func
-    else:
+    if py3:
         return Python3
+    func.py3op = lambda _:func
+    return func

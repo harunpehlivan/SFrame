@@ -29,13 +29,8 @@ class Replacer(Visitor):
                         value[i] = self.new
                     elif isinstance(item, _ast.AST):
                         self.visit(item)
-                    else:
-                        pass
             elif isinstance(value, _ast.AST):
                 self.visit(value)
-            else:
-                pass
-
         return
 
 def replace_nodes(root, old, new):
@@ -73,12 +68,7 @@ class NodeRemover(Visitor):
                         value[i] = self.new
                     elif isinstance(item, _ast.AST):
                         self.visit(item)
-                    else:
-                        pass
             elif isinstance(value, _ast.AST):
                 self.visit(value)
-            else:
-                pass
-
         return
 
