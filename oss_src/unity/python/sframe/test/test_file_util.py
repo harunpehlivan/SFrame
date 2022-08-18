@@ -12,8 +12,8 @@ class FileUtilTests(unittest.TestCase):
 
     def _get_env(self):
         self.run_s3_test = ('FILE_UTIL_TEST_S3_BUCKET' in os.environ) and \
-                            'AWS_ACCESS_KEY_ID' in os.environ and \
-                            'AWS_SECRET_ACCESS_KEY' in os.environ
+                                'AWS_ACCESS_KEY_ID' in os.environ and \
+                                'AWS_SECRET_ACCESS_KEY' in os.environ
 
         if self.run_s3_test:
             self.s3_test_path = os.environ['FILE_UTIL_TEST_S3_BUCKET']
@@ -75,12 +75,11 @@ class FileUtilTests(unittest.TestCase):
         self.assertFalse(fu.is_s3_path(self.http_path))
 
     def test_expand_full_path(self):
-        if not 'HOME' in os.environ:
+        if 'HOME' not in os.environ:
             raise RuntimeError('warning: cannot find $HOME key in environment')
-        else:
-            home = os.environ['HOME']
-            self.assertTrue(fu.expand_full_path('~/tmp'), os.path.join(home, 'tmp'))
-            self.assertTrue(fu.expand_full_path('tmp'), os.path.join(os.getcwd(), 'tmp'))
+        home = os.environ['HOME']
+        self.assertTrue(fu.expand_full_path('~/tmp'), os.path.join(home, 'tmp'))
+        self.assertTrue(fu.expand_full_path('tmp'), os.path.join(os.getcwd(), 'tmp'))
 
     def test_parse_s3_path(self):
         s3_path = 's3://a/b/c'

@@ -282,17 +282,20 @@ class SArrayTest(unittest.TestCase):
         sa_char = SArray(self.url, str)
         sa_int = sa_char.apply(lambda char: ord(char), int)
 
-        expected_output = [x for x in range(ord('a'), ord('a') + 26)]
+        expected_output = list(range(ord('a'), ord('a') + 26))
         self.__test_equal(sa_int, expected_output, int)
 
         # Test randomness across segments, randomized sarray should have different elemetns.
-        sa_random = SArray(range(0, 16), int).apply(lambda x: random.randint(0, 1000), int)
+        sa_random = SArray(range(16), int).apply(
+            lambda x: random.randint(0, 1000), int
+        )
+
         vec = list(sa_random.head(sa_random.size()))
-        self.assertFalse(all([x == vec[0] for x in vec]))
+        self.assertFalse(all(x == vec[0] for x in vec))
 
         # test transform with missing values
         sa = SArray([1,2,3,None,4,5])
-        sa1 = sa.apply(lambda x : x + 1)
+        sa1 = sa + 1
         self.__test_equal(sa1, [2,3,4,None,5,6], int)
 
     def test_transform_with_multiple_lambda(self):
@@ -300,11 +303,11 @@ class SArrayTest(unittest.TestCase):
         sa_int = sa_char.apply(lambda char: ord(char), int)
         sa2_int = sa_int.apply(lambda val: val + 1, int)
 
-        expected_output = [x for x in range(ord('a') + 1, ord('a') + 26 + 1)]
+        expected_output = list(range(ord('a') + 1, ord('a') + 26 + 1))
         self.__test_equal(sa2_int, expected_output, int)
 
     def test_transform_with_exception(self):
-        sa_char = SArray(['a' for i in range(10000)], str)
+        sa_char = SArray(['a' for _ in range(10000)], str)
         # # type mismatch exception
         self.assertRaises(TypeError, lambda: sa_char.apply(lambda char: char, int).head(1))
         # # divide by 0 exception
@@ -314,7 +317,7 @@ class SArrayTest(unittest.TestCase):
         sa_char = SArray(self.url, str)
         sa_int = sa_char.apply(lambda char: ord(char))
 
-        expected_output = [x for x in range(ord('a'), ord('a') + 26)]
+        expected_output = list(range(ord('a'), ord('a') + 26))
         self.__test_equal(sa_int, expected_output, int)
 
         sa_bool = sa_char.apply(lambda char: ord(char) > ord('c'))
@@ -322,12 +325,12 @@ class SArrayTest(unittest.TestCase):
         self.__test_equal(sa_bool, expected_output, int)
 
         # # divide by 0 exception
-        self.assertRaises(ZeroDivisionError, lambda: sa_char.apply(lambda char: ord(char) / 0))
+        self.assertRaises(ZeroDivisionError, lambda: ord(char) / 0)
 
         # Test randomness across segments, randomized sarray should have different elemetns.
-        sa_random = SArray(range(0, 16), int).apply(lambda x: random.randint(0, 1000))
+        sa_random = SArray(range(16), int).apply(lambda x: random.randint(0, 1000))
         vec = list(sa_random.head(sa_random.size()))
-        self.assertFalse(all([x == vec[0] for x in vec]))
+        self.assertFalse(all(x == vec[0] for x in vec))
 
     def test_transform_on_lists(self):
         sa_int =  SArray(self.int_data, int)
@@ -388,7 +391,7 @@ class SArrayTest(unittest.TestCase):
         # test normal case
         s = SArray(self.int_data, int)
         middle_of_array = s.filter(lambda x: x > 3 and x < 8)
-        self.assertEqual(list(middle_of_array.head(10)), [x for x in range(4,8)])
+        self.assertEqual(list(middle_of_array.head(10)), list(range(4,8)))
 
         # test normal string case
         s = SArray(self.string_data, str)
@@ -536,21 +539,18 @@ class SArrayTest(unittest.TestCase):
         self.assertEqual(len(clip_out), len(self.int_data))
         self.assertEqual(len(lclip_out), len(self.int_data))
         self.assertEqual(len(rclip_out), len(self.int_data))
-        for i in range(0,len(clip_out)):
+        for i in range(len(clip_out)):
             if i < 2:
                 self.assertEqual(clip_out[i], 3)
                 self.assertEqual(lclip_out[i], 3)
                 self.assertEqual(rclip_out[i], self.int_data[i])
-                self.assertEqual(clip_out_nc[i], self.int_data[i])
             elif i > 6:
                 self.assertEqual(clip_out[i], 7)
                 self.assertEqual(lclip_out[i], self.int_data[i])
                 self.assertEqual(rclip_out[i], 7)
-                self.assertEqual(clip_out_nc[i], self.int_data[i])
             else:
                 self.assertEqual(clip_out[i], self.int_data[i])
-                self.assertEqual(clip_out_nc[i], self.int_data[i])
-
+            self.assertEqual(clip_out_nc[i], self.int_data[i])
         # int w/float, change
         # float w/int
         # float w/float
@@ -558,7 +558,7 @@ class SArrayTest(unittest.TestCase):
         fs = SArray(self.float_data, float)
         ficlip_out = fs.clip(3, 7).head(10)
         ffclip_out = fs.clip(2.8, 7.2).head(10)
-        for i in range(0,len(clip_out)):
+        for i in range(len(clip_out)):
             if i < 2:
                 self.assertAlmostEqual(clip_out[i], 2.8)
                 self.assertAlmostEqual(ffclip_out[i], 2.8)
@@ -575,11 +575,11 @@ class SArrayTest(unittest.TestCase):
         vs = SArray(self.vec_data, array.array);
         clipvs = vs.clip(3, 7).head(100)
         self.assertEqual(len(clipvs), len(self.vec_data));
-        for i in range(0, len(clipvs)):
+        for i in range(len(clipvs)):
             a = clipvs[i]
             b = self.vec_data[i]
             self.assertEqual(len(a), len(b))
-            for j in range(0, len(b)):
+            for j in range(len(b)):
                 if b[j] < 3:
                     b[j] = 3
                 elif b[j] > 7:
@@ -620,7 +620,7 @@ class SArrayTest(unittest.TestCase):
         self.assertEqual(nz_out, len(self.float_data))
 
         # test all zero
-        s = SArray([0 for x in range(0,10)], int)
+        s = SArray([0 for _ in range(10)], int)
         nz_out = s.nnz()
         self.assertEqual(nz_out, 0)
 
@@ -679,17 +679,17 @@ class SArrayTest(unittest.TestCase):
         self.assertEqual(len(s.tail()), 0)
 
         # test standard tail
-        s = SArray([x for x in range(0,40)], int)
-        self.assertEqual(list(s.tail()), [x for x in range(30,40)])
+        s = SArray(list(range(40)), int)
+        self.assertEqual(list(s.tail()), list(range(30,40)))
 
         # smaller amount
-        self.assertEqual(list(s.tail(3)), [x for x in range(37,40)])
+        self.assertEqual(list(s.tail(3)), list(range(37,40)))
 
         # larger amount
-        self.assertEqual(list(s.tail(40)), [x for x in range(0,40)])
+        self.assertEqual(list(s.tail(40)), list(range(40)))
 
         # too large
-        self.assertEqual(list(s.tail(81)), [x for x in range(0,40)])
+        self.assertEqual(list(s.tail(81)), list(range(40)))
 
     def test_max_min_sum_mean(self):
         # negative and positive
@@ -740,7 +740,7 @@ class SArrayTest(unittest.TestCase):
         self.assertTrue(type(t) == float)
         self.assertTrue(t == 0.0)
         t = SArray([], int).sum()
-        self.assertTrue(type(t) == int or type(t) == long)
+        self.assertTrue(type(t) in [int, long])
         self.assertTrue(t == 0)
         self.assertTrue(SArray([], array.array).sum() == array.array('d',[]))
 
@@ -795,7 +795,7 @@ class SArrayTest(unittest.TestCase):
         self.assertRaises(ValueError, lambda: bool(s))
 
         realsum = sum(self.int_data)
-        sum1 = sum([x for x in s])
+        sum1 = sum(list(s))
         sum2 = s.sum()
         sum3 = s.apply(lambda x:x, int).sum()
 
@@ -844,7 +844,7 @@ class SArrayTest(unittest.TestCase):
         t_neg = SArray(s_neg, int)
         self.__test_equal(t_neg // 5, list(s_neg // 5), int)
         self.__test_equal(t_neg % 5, list(s_neg % 5), int)
-        
+
         s=["a","b","c"]
         t = SArray(s, str)
         self.__test_equal(t + "x", [i + "x" for i in s], str)
@@ -861,7 +861,7 @@ class SArrayTest(unittest.TestCase):
         self.__test_equal(s * 2, [array.array('d', [float(j) * 2 for j in i]) for i in self.vec_data], array.array)
         self.__test_equal(s / 2, [array.array('d', [float(j) / 2 for j in i]) for i in self.vec_data], array.array)
         s = SArray([1,2,3,4,None])
-        self.__test_equal(s == None, [0,0,0,0,1], int)
+        self.__test_equal(s is None, [0,0,0,0,1], int)
         self.__test_equal(s != None, [1,1,1,1,0], int)
 
     def test_modulus_operator(self):
@@ -890,11 +890,31 @@ class SArrayTest(unittest.TestCase):
 
         s = SArray(self.vec_data, array.array)
         self.__test_almost_equal(s + s, [array.array('d', [float(j) + float(j) for j in i]) for i in self.vec_data], array.array)
-        self.__test_almost_equal(s - s, [array.array('d', [float(j) - float(j) for j in i]) for i in self.vec_data], array.array)
-        self.__test_almost_equal(s * s, [array.array('d', [float(j) * float(j) for j in i]) for i in self.vec_data], array.array)
-        self.__test_almost_equal(s / s, [array.array('d', [float(j) / float(j) for j in i]) for i in self.vec_data], array.array)
+        self.__test_almost_equal(
+            s - s,
+            [array.array('d', [0.0 for _ in i]) for i in self.vec_data],
+            array.array,
+        )
+
+        self.__test_almost_equal(
+            s * s,
+            [array.array('d', [float(j) ** 2 for j in i]) for i in self.vec_data],
+            array.array,
+        )
+
+        self.__test_almost_equal(
+            s / s,
+            [array.array('d', [1.0 for _ in i]) for i in self.vec_data],
+            array.array,
+        )
+
         self.__test_almost_equal(s ** s, [array.array('d', [float(j) ** float(j) for j in i]) for i in self.vec_data], array.array)
-        self.__test_almost_equal(s // s, [array.array('d', [float(j) // float(j) for j in i]) for i in self.vec_data], array.array)
+        self.__test_almost_equal(
+            s // s,
+            [array.array('d', [1.0 for _ in i]) for i in self.vec_data],
+            array.array,
+        )
+
         t = SArray(self.float_data, float)
 
         self.__test_almost_equal(s + t, [array.array('d', [float(j) + i[1] for j in i[0]]) for i in zip(self.vec_data, self.float_data)], array.array)
@@ -915,7 +935,7 @@ class SArrayTest(unittest.TestCase):
         self.__test_almost_equal(s ** t, [array.array('d', [float(j) ** i[1] for j in i[0]]) for i in zip(self.vec_data, neg_float_data)], array.array)
         self.__test_almost_equal(s // t, [array.array('d', [float(j) // i[1] for j in i[0]]) for i in zip(self.vec_data, neg_float_data)], array.array)
         self.__test_almost_equal(t // s, [array.array('d', [i[1] // float(j) for j in i[0]]) for i in zip(self.vec_data, neg_float_data)], array.array)
-        
+
         s = SArray([1,2,3,4,None])
         self.assertTrue((s==s).all())
         s = SArray([1,2,3,4,None])
@@ -928,10 +948,10 @@ class SArrayTest(unittest.TestCase):
                 left_val = array.array('d', left_val)
             if type(right_val) is list:
                 right_val = array.array('d', right_val)
-            
+
             left_type = type(left_val)
             v1 = (SArray([left_val], left_type) // right_val)[0]
-            
+
             if type(right_val) is array.array:
                 if type(left_val) is array.array:
                     v2 = array.array('d', [lv // rv for lv, rv in zip(left_val, right_val)])
@@ -942,7 +962,7 @@ class SArrayTest(unittest.TestCase):
                     v2 = array.array('d', [lv // right_val for lv in left_val])
                 else:
                     v2 = left_val // right_val
-                
+
             if type(v1) in six.integer_types:
                 self.assertTrue(type(v2) in six.integer_types)
             else:
@@ -973,10 +993,10 @@ class SArrayTest(unittest.TestCase):
                 left_val = array.array('d', left_val)
             if type(right_val) is list:
                 right_val = array.array('d', right_val)
-            
+
             left_type = type(left_val)
             v1 = (SArray([left_val], left_type) // right_val)[0]
-            
+
             if type(right_val) is array.array:
                 if type(left_val) is array.array:
                     v2 = array.array('d', [lv // rv for lv, rv in zip(left_val, right_val)])
@@ -987,7 +1007,7 @@ class SArrayTest(unittest.TestCase):
                     v2 = array.array('d', [lv // right_val for lv in left_val])
                 else:
                     v2 = left_val // right_val
-                
+
             if type(v1) in six.integer_types:
                 self.assertTrue(type(v2) in six.integer_types)
             else:
@@ -1012,13 +1032,13 @@ class SArrayTest(unittest.TestCase):
         try_eq_sa_val(2.0,[3, -3])
 
         from math import isnan
-        
+
         def try_eq_sa_correct(left_val, right_val, correct):
             if type(left_val) is list:
                 left_val = array.array('d', left_val)
             if type(right_val) is list:
                 right_val = array.array('d', right_val)
-            
+
             left_type = type(left_val)
             v1 = (SArray([left_val], left_type) // right_val)[0]
 
@@ -1032,15 +1052,15 @@ class SArrayTest(unittest.TestCase):
                 else:
                     self.assertEqual(type(v), type(c))
                     self.assertEqual(v, c)
-        
+
         try_eq_sa_correct(1, 0, None)
         try_eq_sa_correct(0, 0, None)
         try_eq_sa_correct(-1, 0, None)
-        
+
         try_eq_sa_correct(1.0, 0, float('inf'))
         try_eq_sa_correct(0.0, 0, float('nan'))
         try_eq_sa_correct(-1.0, 0, float('-inf'))
-                
+
         try_eq_sa_correct([1.0,0,-1], 0, [float('inf'), float('nan'), float('-inf')])
         try_eq_sa_correct(1, [1.0, 0], [1., float('inf')])
         try_eq_sa_correct(-1, [1.0, 0], [-1., float('-inf')])
@@ -1236,15 +1256,15 @@ class SArrayTest(unittest.TestCase):
         n = len(self.int_data)
         m = n // 2
 
-        self.__test_append(self.int_data[0:m], self.int_data[m:n], int)
-        self.__test_append(self.bool_data[0:m], self.bool_data[m:n], int)
-        self.__test_append(self.string_data[0:m], self.string_data[m:n], str)
-        self.__test_append(self.float_data[0:m], self.float_data[m:n], float)
-        self.__test_append(self.vec_data[0:m], self.vec_data[m:n], array.array)
-        self.__test_append(self.dict_data[0:m], self.dict_data[m:n], dict)
+        self.__test_append(self.int_data[:m], self.int_data[m:n], int)
+        self.__test_append(self.bool_data[:m], self.bool_data[m:n], int)
+        self.__test_append(self.string_data[:m], self.string_data[m:n], str)
+        self.__test_append(self.float_data[:m], self.float_data[m:n], float)
+        self.__test_append(self.vec_data[:m], self.vec_data[m:n], array.array)
+        self.__test_append(self.dict_data[:m], self.dict_data[m:n], dict)
 
     def test_append_exception(self):
-        val1 = [i for i in range(1, 1000)]
+        val1 = list(range(1, 1000))
         val2 = [str(i) for i in range(-10, 1)]
         sa1 = SArray(val1, int)
         sa2 = SArray(val2, str)

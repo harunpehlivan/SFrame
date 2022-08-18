@@ -17,7 +17,7 @@ from subprocess import check_call, CalledProcessError, PIPE
 
 options = None
 args    = []
-available_types = set(['scons'])
+available_types = {'scons'}
 tool_stdout = PIPE
 
 def main():
@@ -95,7 +95,7 @@ def purge_tests(dirs):
 def warn(msg):
     """A general warning function."""
     if options.verbose:
-        print('[Warn]: ' + msg, file=sys.stderr)
+        print(f'[Warn]: {msg}', file=sys.stderr)
 
 def notice(msg):
     """A general print function."""

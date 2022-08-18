@@ -60,7 +60,7 @@ class CollectNodes(Visitor):
         return {node.id}
 
     def visitalias(self, node):
-        name = node.asname if node.asname else node.name
+        name = node.asname or node.name
 
         if '.' in name:
             name = name.split('.', 1)[0]
@@ -80,8 +80,7 @@ class CollectNodes(Visitor):
                     right.update(self.visit(child))
 
         for attr in ('starargs', 'kwargs'):
-            child = getattr(node, attr)
-            if child:
+            if child := getattr(node, attr):
                 right.update(self.visit(child))
 
         for src in left | right:
@@ -98,12 +97,11 @@ class CollectNodes(Visitor):
     def visitSubscript(self, node):
         if isinstance(node.ctx, _ast.Load):
             return collect_(self, node)
-        else:
-            sources = self.visit(node.slice)
-            targets = self.visit(node.value)
-            self.modified.update(targets)
-            add_edges(self.graph, targets, sources)
-            return targets
+        sources = self.visit(node.slice)
+        targets = self.visit(node.value)
+        self.modified.update(targets)
+        add_edges(self.graph, targets, sources)
+        return targets
         
     def handle_generators(self, generators):
         defined = set()
@@ -112,7 +110,7 @@ class CollectNodes(Visitor):
             get_symbols(generator, _ast.Load)
             required.update(get_symbols(generator, _ast.Load) - defined)
             defined.update(get_symbols(generator, _ast.Store))
-            
+
         return defined, required
     
     def visitListComp(self, node):
@@ -226,8 +224,7 @@ class GraphGen(CollectNodes):
         nodes = self.visit(node.value)
 
         tsymols = get_symbols(node, _ast.Store)
-        re_defined = tsymols.intersection(set(self.graph.nodes()))
-        if re_defined:
+        if re_defined := tsymols.intersection(set(self.graph.nodes())):
             add_edges(self.graph, re_defined, re_defined)
 
         targets = set()
@@ -307,11 +304,7 @@ class GraphGen(CollectNodes):
 
         nodes.update(targets)
 
-        if node.optional_vars is None:
-            vars = ()
-        else:
-            vars = self.visit(node.optional_vars)
-
+        vars = () if node.optional_vars is None else self.visit(node.optional_vars)
         nodes.update(vars)
         add_edges(self.graph, vars, targets)
 

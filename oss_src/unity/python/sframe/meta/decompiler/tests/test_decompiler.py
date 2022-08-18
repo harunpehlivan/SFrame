@@ -52,7 +52,7 @@ def foo():
     else:
         return 2 
         '''
-        
+
         equiv = '''
 def foo():
     if a:
@@ -60,7 +60,7 @@ def foo():
     return 2
     return None
         '''
-        
+
         self.statement(stmnt, equiv=equiv)
     
     @unittest.expectedFailure

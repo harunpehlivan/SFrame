@@ -50,15 +50,15 @@ class RunBlock(Directive):
         language = self.arguments[0]
 
         if language not in config:
-            raise RunBlockError('Unknown language %s' % language)
+            raise RunBlockError(f'Unknown language {language}')
 
 
         # Get configuration values for the language
         args = config[language].split()
-        input_encoding = config.get(language+'_input_encoding','ascii')
-        output_encoding = config.get(language+'_output_encoding','ascii')
-        prefix_chars = config.get(language+'_prefix_chars',0)
-        show_source = config.get(language+'_show_source',True)
+        input_encoding = config.get(f'{language}_input_encoding', 'ascii')
+        output_encoding = config.get(f'{language}_output_encoding', 'ascii')
+        prefix_chars = config.get(f'{language}_prefix_chars', 0)
+        show_source = config.get(f'{language}_show_source', True)
 
 
         # Build the code text
@@ -76,10 +76,7 @@ class RunBlock(Directive):
             out = ''.join(stderr).decode(output_encoding)
 
         # Get the original code with prefixes
-        if show_source:
-            code = u'\n'.join(self.content)
-        else:
-            code = ''
+        code = u'\n'.join(self.content) if show_source else ''
         code_out = u'\n'.join((code, out))
 
         literal = nodes.literal_block(code_out, code_out)

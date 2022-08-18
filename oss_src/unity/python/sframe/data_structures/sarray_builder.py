@@ -127,8 +127,7 @@ class SArrayBuilder(object):
         out : list
 
         """
-        if num < 0:
-            num = 0
+        num = max(num, 0)
         if segment < 0:
             raise TypeError("segment must be >= 0")
         return self._builder.read_history(num, segment)

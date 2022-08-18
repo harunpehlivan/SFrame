@@ -32,16 +32,22 @@ class InstallEngine(install):
         # Check correct version of architecture (64-bit only)
         arch = platform.architecture()[0]
         if arch != '64bit':
-            msg = ("SFrame currently supports only 64-bit operating systems, and only recent Linux/OSX " +
-                   "architectures. Please install using a supported version. Your architecture is currently: %s" % arch)
+            msg = (
+                "SFrame currently supports only 64-bit operating systems, and only recent Linux/OSX "
+                + f"architectures. Please install using a supported version. Your architecture is currently: {arch}"
+            )
+
 
             sys.stderr.write(msg)
             sys.exit(1)
 
         # Check correct version of Python
         if sys.version_info.major == 2 and sys.version_info[:2] < (2, 7):
-            msg = ("SFrame requires at least Python 2.7, please install using a supported version."
-                   + " Your current Python version is: %s" % sys.version)
+            msg = (
+                "SFrame requires at least Python 2.7, please install using a supported version."
+                + f" Your current Python version is: {sys.version}"
+            )
+
             sys.stderr.write(msg)
             sys.exit(1)
 

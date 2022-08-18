@@ -18,13 +18,13 @@ class Base(unittest.TestCase):
     def assertAstEqual(self, left, right):
 
         if not isinstance(left, _ast.AST):
-            raise self.failureException("%s is not an _ast.AST instance" % (left))
+            raise self.failureException(f"{left} is not an _ast.AST instance")
         if not isinstance(right, _ast.AST):
-            raise self.failureException("%s is not an _ast.AST instance" % (right))
+            raise self.failureException(f"{right} is not an _ast.AST instance")
         result = cmp_ast(left, right)
 
         if not result:
-            
+
             lstream = StringIO()
             print_ast(left, indent='', file=lstream, newline='')
 

@@ -178,13 +178,12 @@ class Image(object):
             pil_img = self._to_pil_image()
             if _HAS_NUMPY:
                 return _np.asarray(pil_img)
+            ret = _array.array('B')
+            if self._channels == 1:
+                ret.fromlist(list(pil_img.getdata()))
             else:
-                ret = _array.array('B')
-                if self._channels == 1:
-                    ret.fromlist([z for z in pil_img.getdata()])
-                else:
-                    ret.fromlist([z for i in pil_img.getdata() for z in i])
-                return ret
+                ret.fromlist([z for i in pil_img.getdata() for z in i])
+            return ret
         except ImportError:
             print("Install pillow to get the pixel_data property")
 
@@ -201,9 +200,9 @@ class Image(object):
         return self.__repr__()
 
     def __repr__(self):
-        ret = "Height: " + str(self._height) + "px\n"
-        ret = ret + "Width: " + str(self._width) + "px\n"
-        ret = ret + "Channels: " + str(self._channels) + "\n"
+        ret = f"Height: {str(self._height)}" + "px\n"
+        ret = f"{ret}Width: {str(self._width)}" + "px\n"
+        ret = f"{ret}Channels: {str(self._channels)}" + "\n"
         return ret
 
     def _to_pil_image(self):
@@ -216,7 +215,7 @@ class Image(object):
             elif self.channels == 4:
                 img = _PIL_image.frombytes('RGBA', (self._width, self._height), bytes(self._image_data))
             else:
-                raise ValueError('Unsupported channel size: ' + str(self.channels))
+                raise ValueError(f'Unsupported channel size: {str(self.channels)}')
         else:
             img = _PIL_image.open(_StringIO(self._image_data))
         return img

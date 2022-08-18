@@ -94,8 +94,7 @@ def multiget(dictlist, key, default = None):
     for dict in dictlist:
         if dict.has_key(key):
             return dict[key]
-    else:
-        return default
+    return default
 
 def envget(env, key, default=None):
     """Look in the env, then in os.environ. Otherwise same as multiget."""
@@ -110,10 +109,7 @@ def prepend_ld_library_path(env, overrides, **kwargs):
     if len(libpath) > 0:
         libpath = env.arg2nodes(libpath, env.fs.Dir)
         platform = env.get('PLATFORM','')
-        if platform == 'win32':
-            var = 'PATH'
-        else:
-            var = 'LD_LIBRARY_PATH'
+        var = 'PATH' if platform == 'win32' else 'LD_LIBRARY_PATH'
         eenv = overrides.get('ENV', env['ENV'].copy())
         canonicalize = lambda p : p.abspath
         eenv[var] = PrependPath(eenv.get(var,''), libpath, os.pathsep, 1, canonicalize)
@@ -155,13 +151,12 @@ def UnitTest(env, target, source = [], **kwargs):
 
 def isValidScriptPath(cxxtestgen):
     """check keyword arg or environment variable locating cxxtestgen script"""
-       
+   
     if cxxtestgen and os.path.exists(cxxtestgen):
         return True
-    else:
-        SCons.Warnings.warn(ToolCxxTestWarning,
-                            "Invalid CXXTEST environment variable specified!")
-        return False
+    SCons.Warnings.warn(ToolCxxTestWarning,
+                        "Invalid CXXTEST environment variable specified!")
+    return False
     
 def defaultCxxTestGenLocation(env):
     return os.path.join(
@@ -171,7 +166,7 @@ def defaultCxxTestGenLocation(env):
 
 def findCxxTestGen(env):
     """locate the cxxtestgen script by checking environment, path and project"""
-    
+
     # check the SCons environment...
     # Then, check the OS environment...
     cxxtest = envget(env, 'CXXTEST', None)
@@ -201,7 +196,7 @@ def findCxxTestGen(env):
         # make sure it was correct
         if isValidScriptPath(cxxtest):
            return os.path.realpath(cxxtest)
-    
+
     # No valid environment variable found, so...
     # Next, check the path...
     # Next, check the project
@@ -209,22 +204,23 @@ def findCxxTestGen(env):
             envget(env, 'CXXTEST_INSTALL_DIR'),
             envget(env, 'CXXTEST_CXXTESTGEN_DEFAULT_LOCATION'))
 
-    cxxtest = (env.WhereIs(envget(env, 'CXXTEST_CXXTESTGEN_SCRIPT_NAME')) or 
-               env.WhereIs(envget(env, 'CXXTEST_CXXTESTGEN_SCRIPT_NAME'),
-                   path=[Dir(check_path).abspath]))
-    
-    if cxxtest:
+    if cxxtest := (
+        env.WhereIs(envget(env, 'CXXTEST_CXXTESTGEN_SCRIPT_NAME'))
+        or env.WhereIs(
+            envget(env, 'CXXTEST_CXXTESTGEN_SCRIPT_NAME'),
+            path=[Dir(check_path).abspath],
+        )
+    ):
         return cxxtest
-    else:
-        # If we weren't able to locate the cxxtestgen script, complain...
-        SCons.Warnings.warn(
-                ToolCxxTestWarning,
-                "Unable to locate cxxtestgen in environment, path or"
-                " project!\n"
-                "Please set the CXXTEST variable to the path of the"
-                " cxxtestgen script"
-                )
-        return None
+    # If we weren't able to locate the cxxtestgen script, complain...
+    SCons.Warnings.warn(
+            ToolCxxTestWarning,
+            "Unable to locate cxxtestgen in environment, path or"
+            " project!\n"
+            "Please set the CXXTEST variable to the path of the"
+            " cxxtestgen script"
+            )
+    return None
 
 def findCxxTestHeaders(env):
     searchfile = 'TestSuite.h'
@@ -236,11 +232,11 @@ def findCxxTestHeaders(env):
     alt_path = os_cxxtestgen[:-cxxtestgen_pathlen]
 
     searchpaths = [default_path, alt_path]
-    foundpaths = []
-    for p in searchpaths:
-        if os.path.exists(os.path.join(p, 'cxxtest', searchfile)):
-            foundpaths.append(p)
-    return foundpaths
+    return [
+        p
+        for p in searchpaths
+        if os.path.exists(os.path.join(p, 'cxxtest', searchfile))
+    ]
 
 def generate(env, **kwargs):
     """

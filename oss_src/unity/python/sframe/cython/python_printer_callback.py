@@ -25,10 +25,12 @@ def print_callback(val):
         # for reasons I cannot fathom, regular printing, even directly
         # to io.stdout does not work.
         # I have to intrude rather deep into IPython to make it behave
-        if have_ipython:
-            if InteractiveShell.initialized():
-                IPython.display.publish_display_data({'text/plain':val,'text/html':'<pre>' + val + '</pre>'})
-                success = True
+        if have_ipython and InteractiveShell.initialized():
+            IPython.display.publish_display_data(
+                {'text/plain': val, 'text/html': f'<pre>{val}</pre>'}
+            )
+
+            success = True
     except:
         pass
 

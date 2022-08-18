@@ -75,22 +75,18 @@ CMP_OPMAP = {'>=' :_ast.GtE,
 
 def make_const(arg, lineno=0, col_offset=0):
     kw = {'lineno':lineno, 'col_offset':col_offset}
-    
+
     if isinstance(arg, str):
-        const = _ast.Str(s=arg, **kw)
+        return _ast.Str(s=arg, **kw)
     elif isinstance(arg, (int, float, complex)):
-        const = _ast.Num(n=arg, **kw)
+        return _ast.Num(n=arg, **kw)
     elif arg is None:
-        const = _ast.Name(id='None', ctx=_ast.Load(), **kw)
+        return _ast.Name(id='None', ctx=_ast.Load(), **kw)
     elif isinstance(arg, tuple):
-        elts = []
-        for item in arg:
-            elts.append(make_const(item, **kw))
-        const = _ast.Tuple(elts=elts, ctx=_ast.Load(), **kw)
+        elts = [make_const(item, **kw) for item in arg]
+        return _ast.Tuple(elts=elts, ctx=_ast.Load(), **kw)
     else:
-        const = arg
-    
-    return const
+        return arg
     
 class SimpleInstructions(object):
 
@@ -198,7 +194,7 @@ class SimpleInstructions(object):
 
         value = self.ast_stack.pop()
         value = self.process_ifexpr(value)
-        
+
         if isinstance(value, _ast.Import):
 
             if value.from_:
@@ -219,14 +215,14 @@ class SimpleInstructions(object):
                         value.names[0].asname = as_name
 
             self.ast_stack.append(value)
-            
+
         elif isinstance(value, (_ast.Attribute)) and isinstance(value.value, (_ast.Import)):
             asname = instr.arg
             value = value.value
             value.names[0].asname = asname
-            
+
             self.ast_stack.append(value)
-            
+
         elif isinstance(value, (_ast.ClassDef, _ast.FunctionDef)):
             as_name = instr.arg
             value.name = as_name
@@ -324,22 +320,20 @@ class SimpleInstructions(object):
 
     def process_ifexpr(self, node):
 
-        if isinstance(node, _ast.If):
-            test = node.test
-            then = node.body
-            else_ = node.orelse
-
-            assert len(then) == 1
-            then = then[0]
-
-            assert len(else_) == 1
-
-            else_ = else_[0]
-
-            if_exp = _ast.IfExp(test, then, else_, lineno=node.lineno, col_offset=0)
-            return if_exp
-        else:
+        if not isinstance(node, _ast.If):
             return node
+        test = node.test
+        then = node.body
+        else_ = node.orelse
+
+        assert len(then) == 1
+        then = then[0]
+
+        assert len(else_) == 1
+
+        else_ = else_[0]
+
+        return _ast.IfExp(test, then, else_, lineno=node.lineno, col_offset=0)
 
     def POP_TOP(self, instr):
 
@@ -358,27 +352,27 @@ class SimpleInstructions(object):
         self.ast_stack.append(discard)
 
     def ROT_TWO(self, instr):
-        
+
         one = self.ast_stack.pop()
         two = self.ast_stack.pop()
-        
+
         if self.ilst[0].opname == 'STORE_NAME':
-            
+
             kw = dict(lineno=instr.lineno, col_offset=0)
             stores = []
             while self.ilst[0].opname == 'STORE_NAME':
                 stores.append(self.ilst.pop(0))
-                
+
             assert len(stores) <= 3, stores
             elts_load = [one, two]
             if len(stores) == 3:
                 elts_load.insert(0, self.ast_stack.pop())
-                
+
             tup_load = _ast.Tuple(elts=elts_load[::-1], ctx=_ast.Load(), **kw)
-            
+
             elts_store = [_ast.Name(id=store.arg, ctx=_ast.Store(), **kw) for store in stores]
             tup_store = _ast.Tuple(elts=elts_store, ctx=_ast.Store(), **kw)
-            
+
             assgn = _ast.Assign(value=tup_load, targets=[tup_store], **kw)
             self.ast_stack.append(assgn)
 #            self.ast_stack.append(tup_store)
@@ -449,7 +443,7 @@ class SimpleInstructions(object):
 
         nodes = []
         list_ = _ast.List(elts=nodes, ctx=_ast.Load(), lineno=instr.lineno, col_offset=0)
-        for i in range(nitems):
+        for _ in range(nitems):
             nodes.insert(0, self.ast_stack.pop())
 
         self.ast_stack.append(list_)
@@ -460,11 +454,11 @@ class SimpleInstructions(object):
 
         nodes = []
         list_ = _ast.Tuple(elts=nodes, ctx=_ast.Load(), lineno=instr.lineno, col_offset=0)
-        for i in range(nitems):
+        for _ in range(nitems):
             nodes.insert(0, self.ast_stack.pop())
 
-        if any([item == 'CLOSURE' for item in nodes]):
-            assert all([item == 'CLOSURE' for item in nodes])
+        if 'CLOSURE' in nodes:
+            assert all(item == 'CLOSURE' for item in nodes)
             return
 
         self.ast_stack.append(list_)
@@ -475,7 +469,7 @@ class SimpleInstructions(object):
 
         nodes = []
         list_ = _ast.Set(elts=nodes, ctx=_ast.Load(), lineno=instr.lineno, col_offset=0)
-        for i in range(nitems):
+        for _ in range(nitems):
             nodes.insert(0, self.ast_stack.pop())
 
         self.ast_stack.append(list_)
@@ -485,7 +479,7 @@ class SimpleInstructions(object):
         nitems = instr.oparg
         keys = []
         values = []
-        for i in range(nitems):
+        for _ in range(nitems):
             map_instrs = []
             while 1:
                 new_instr = self.ilst.pop(0)
@@ -510,7 +504,7 @@ class SimpleInstructions(object):
 
         nodes = []
         ast_tuple = _ast.Tuple(elts=nodes, ctx=_ast.Store(), lineno=instr.lineno, col_offset=0)
-        for i in range(nargs):
+        for _ in range(nargs):
             nex_instr = self.ilst.pop(0)
             self.ast_stack.append(None)
             self.visit(nex_instr)
@@ -522,11 +516,11 @@ class SimpleInstructions(object):
         if isinstance(expr, _ast.Assign):
             assgn = expr 
             assgn.targets.append(ast_tuple)
-            
+
             value_dup = self.ast_stack.pop()
-            
+
             assert cmp_ast(assgn.value, value_dup)
-            
+
         else:
             assgn = _ast.Assign(targets=[ast_tuple], value=expr, lineno=instr.lineno, col_offset=0)
         self.ast_stack.append(assgn)
@@ -590,10 +584,10 @@ class SimpleInstructions(object):
     def DUP_TOPX(self, instr):
 
         exprs = []
-        for i in range(instr.oparg):
+        for _ in range(instr.oparg):
             expr = self.ast_stack.pop()
             exprs.insert(0, expr)
-            
+
         self.ast_stack.extend(exprs)
         self.ast_stack.extend(exprs)
         
@@ -625,12 +619,12 @@ class SimpleInstructions(object):
 
         item = self.ast_stack.pop()
 
-        if self.ast_stack:
-            print_ = self.ast_stack[-1]
-        else:
-            print_ = None
-
-        if isinstance(print_, _ast_Print) and not print_.nl and print_.dest == None:
+        print_ = self.ast_stack[-1] if self.ast_stack else None
+        if (
+            isinstance(print_, _ast_Print)
+            and not print_.nl
+            and print_.dest is None
+        ):
             print_.values.append(item)
         else:
             print_ = _ast_Print(dest=None, values=[item], nl=False, lineno=instr.lineno, col_offset=0)
@@ -639,7 +633,7 @@ class SimpleInstructions(object):
     def PRINT_NEWLINE(self, instr):
         item = self.ast_stack[-1]
 
-        if isinstance(item, _ast_Print) and not item.nl and item.dest == None:
+        if isinstance(item, _ast_Print) and not item.nl and item.dest is None:
             item.nl = True
         else:
             print_ = _ast_Print(dest=None, values=[], nl=True, lineno=instr.lineno, col_offset=0)
@@ -761,17 +755,9 @@ class SimpleInstructions(object):
 
     def BUILD_SLICE(self, instr):
 
-        step = None
-        upper = None
-        lower = None
-
-        if instr.oparg > 2:
-            step = self.ast_stack.pop()
-        if instr.oparg > 1:
-            upper = self.ast_stack.pop()
-        if instr.oparg > 0:
-            lower = self.ast_stack.pop()
-
+        step = self.ast_stack.pop() if instr.oparg > 2 else None
+        upper = self.ast_stack.pop() if instr.oparg > 1 else None
+        lower = self.ast_stack.pop() if instr.oparg > 0 else None
         upper = None if isNone(upper) else upper
         lower = None if isNone(lower) else lower
 
@@ -926,16 +912,9 @@ class SimpleInstructions(object):
     def RAISE_VARARGS(self, instr):
         nargs = instr.oparg
 
-        tback = None
-        inst = None
-        type = None
-        if nargs > 2:
-            tback = self.ast_stack.pop()
-        if nargs > 1:
-            inst = self.ast_stack.pop()
-        if nargs > 0:
-            type = self.ast_stack.pop()
-
+        tback = self.ast_stack.pop() if nargs > 2 else None
+        inst = self.ast_stack.pop() if nargs > 1 else None
+        type = self.ast_stack.pop() if nargs > 0 else None
         raise_ = _ast.Raise(tback=tback, inst=inst, type=type,
                             lineno=instr.lineno, col_offset=0)
         self.ast_stack.append(raise_)
@@ -943,15 +922,9 @@ class SimpleInstructions(object):
     @RAISE_VARARGS.py3op
     def RAISE_VARARGS(self, instr):
         nargs = instr.oparg
-        
-        cause = None
-        exc = None
-        
-        if nargs > 1:
-            cause = self.ast_stack.pop()
-        if nargs > 0:
-            exc = self.ast_stack.pop()
 
+        cause = self.ast_stack.pop() if nargs > 1 else None
+        exc = self.ast_stack.pop() if nargs > 0 else None
         raise_ = _ast.Raise(exc=exc, cause=cause,
                             lineno=instr.lineno, col_offset=0)
         self.ast_stack.append(raise_)
@@ -960,7 +933,7 @@ class SimpleInstructions(object):
     def EXTENDED_ARG(self, instr):
         code = self.ast_stack.pop()
         argument_names = self.ast_stack.pop()
-        
+
         assert len(argument_names.elts) == (instr.oparg - 1)
         args = []
         kw = dict(lineno=instr.lineno, col_offset=0)

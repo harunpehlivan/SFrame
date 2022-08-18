@@ -23,7 +23,7 @@ class DataFrameTest(unittest.TestCase):
 
     def test_simple_dataframe(self):
         expected = pandas.DataFrame()
-        expected['int'] = [i for i in range(10)]
+        expected['int'] = list(range(10))
         expected['float'] = [float(i) for i in range(10)]
         expected['str'] = [str(i) for i in range(10)]
         if version_info.major == 2:

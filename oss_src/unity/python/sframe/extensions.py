@@ -100,7 +100,7 @@ def _wrap_function_return(val):
     elif type(val) is list:
         return [_wrap_function_return(i) for i in val]
     elif type(val) is dict:
-        return dict( (i, _wrap_function_return(val[i])) for i in val)
+        return {i: _wrap_function_return(val[i]) for i in val}
     else:
         return val
 
@@ -135,13 +135,13 @@ def _run_toolkit_function(fnname, arguments, args, kwargs):
     num_args_got = len(args) + len(kwargs)
     num_args_required = len(arguments)
     if num_args_got != num_args_required:
-        raise TypeError("Expecting " + str(num_args_required) + " arguments, got " + str(num_args_got))
+        raise TypeError(
+            f"Expecting {num_args_required} arguments, got {str(num_args_got)}"
+        )
+
 
     ## fill the dict first with the regular args
-    argument_dict = {}
-    for i in range(len(args)):
-        argument_dict[arguments[i]] = args[i]
-
+    argument_dict = {arguments[i]: args[i] for i in range(len(args))}
     # now fill with the kwargs.
     for k in kwargs.keys():
         if k in argument_dict:
@@ -181,11 +181,10 @@ def _class_instance_from_name(class_name, *arg, **kwarg):
     """
     # we first look in gl.extensions for the class name
     module_path = class_name.split('.')
-    import_path = module_path[0:-1]
+    import_path = module_path[:-1]
     module = __import__('.'.join(import_path), fromlist=[module_path[-1]])
     class_ = getattr(module, module_path[-1])
-    instance = class_(*arg, **kwarg)
-    return instance
+    return class_(*arg, **kwarg)
 
 def _create_class_instance(class_name, _proxy):
     """
@@ -194,7 +193,10 @@ def _create_class_instance(class_name, _proxy):
     """
     root_package_name = __import__(__name__.split('.')[0]).__name__
     try:
-        return _class_instance_from_name(root_package_name + ".extensions." + class_name, _proxy=_proxy)
+        return _class_instance_from_name(
+            f"{root_package_name}.extensions.{class_name}", _proxy=_proxy
+        )
+
     except:
         pass
     return _class_instance_from_name(class_name, _proxy=_proxy)
@@ -262,13 +264,13 @@ class _ToolkitClass:
         num_args_got = len(args) + len(kwargs)
         num_args_required = len(arguments)
         if num_args_got != num_args_required:
-            raise TypeError("Expecting " + str(num_args_required) + " arguments, got " + str(num_args_got))
+            raise TypeError(
+                f"Expecting {num_args_required} arguments, got {str(num_args_got)}"
+            )
+
 
         ## fill the dict first with the regular args
-        argument_dict = {}
-        for i in range(len(args)):
-            argument_dict[arguments[i]] = args[i]
-
+        argument_dict = {arguments[i]: args[i] for i in range(len(args))}
         # now fill with the kwargs.
         for k in kwargs.keys():
             if k in argument_dict:
@@ -291,7 +293,13 @@ class _ToolkitClass:
         elif name in self._functions:
             # is it a function?
             ret = lambda *args, **kwargs: self.__run_class_function(name, args, kwargs)
-            ret.__doc__ = "Name: " + name + "\nParameters: " + str(self._functions[name]) + "\n"
+            ret.__doc__ = (
+                f"Name: {name}"
+                + "\nParameters: "
+                + str(self._functions[name])
+                + "\n"
+            )
+
             try:
                 ret.__doc__ += self._tkclass.get('get_docstring', {'__symbol__':name})
                 ret.__doc__ += '\n'
@@ -299,7 +307,7 @@ class _ToolkitClass:
                 pass
             return ret
         else:
-            raise AttributeError("no attribute " + name)
+            raise AttributeError(f"no attribute {name}")
 
 
     def __setattr__(self, name, value):
@@ -310,7 +318,7 @@ class _ToolkitClass:
             arguments = {'__property_name__':name, 'value':value}
             return _wrap_function_return(self._tkclass.get('set_property', arguments))
         else:
-            raise AttributeError("no attribute " + name)
+            raise AttributeError(f"no attribute {name}")
 
 def _list_functions():
     """
@@ -342,7 +350,7 @@ def _publish():
 
         newfunc = _make_injected_function(fn, arguments)
 
-        newfunc.__doc__ = "Name: " + fn + "\nParameters: " + str(arguments) + "\n"
+        newfunc.__doc__ = f"Name: {fn}" + "\nParameters: " + str(arguments) + "\n"
         if 'documentation' in props:
             newfunc.__doc__ += props['documentation'] + "\n"
 
@@ -363,7 +371,12 @@ def _publish():
     for tkclass in tkclasslist:
         m = unity.describe_toolkit_class(tkclass)
         # of v2 type
-        if not ('functions' in m and 'get_properties' in m and 'set_properties' in m and 'uid' in m):
+        if (
+            'functions' not in m
+            or 'get_properties' not in m
+            or 'set_properties' not in m
+            or 'uid' not in m
+        ):
             continue
 
         # create a new class
@@ -435,16 +448,16 @@ class _ExtMetaPath(object):
             pathname = os.path.join(path, os.sep.join(fullname.split('.')))
             # try to laod the ".so" extension
             try:
-                if os.path.exists(pathname + '.so'):
-                    ext_import(pathname + '.so', module_subpath)
+                if os.path.exists(f'{pathname}.so'):
+                    ext_import(f'{pathname}.so', module_subpath)
                     break
             except:
                 pass
 
             # try to laod the ".dylib" extension
             try:
-                if os.path.exists(pathname + '.dylib'):
-                    ext_import(pathname + '.dylib', module_subpath)
+                if os.path.exists(f'{pathname}.dylib'):
+                    ext_import(f'{pathname}.dylib', module_subpath)
                     break
             except:
                 pass
@@ -496,7 +509,7 @@ def _add_meta_path():
     """
     import sys
     global _ext_meta_path_singleton
-    if _ext_meta_path_singleton == None:
+    if _ext_meta_path_singleton is None:
         _ext_meta_path_singleton = _ExtMetaPath()
         sys.meta_path += [_ext_meta_path_singleton]
 
@@ -609,8 +622,7 @@ def _get_argument_list_from_toolkit_function_name(fn):
     """
     unity = _get_unity()
     fnprops = unity.describe_toolkit_function(fn)
-    argnames = fnprops['arguments']
-    return argnames
+    return fnprops['arguments']
 
 class _Closure:
     """
@@ -649,10 +661,7 @@ def _descend_namespace(caller_globals, name):
     names =  name.split('.')
     cur = caller_globals
     for i in names:
-        if type(cur) is dict:
-            cur = cur[i]
-        else:
-            cur = getattr(cur, i)
+        cur = cur[i] if type(cur) is dict else getattr(cur, i)
     return cur
 
 def _build_native_function_call(fn):

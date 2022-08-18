@@ -128,7 +128,7 @@ def _get_gl_object_from_persistent_id(type_tag, gl_archive_abs_path):
 class GLPickler(_cloudpickle.CloudPickler):
 
     def _to_abs_path_set(self, l):
-        return set([_os.path.abspath(x) for x in l])
+        return {_os.path.abspath(x) for x in l}
 
     """
 
@@ -285,7 +285,7 @@ class GLPickler(_cloudpickle.CloudPickler):
             self.file = open(pickle_filename, 'wb')
             _cloudpickle.CloudPickler.__init__(self, self.file, protocol)
         except IOError as err:
-            print("GraphLab create pickling error: %s" % err)
+            print(f"GraphLab create pickling error: {err}")
 
         # Write the version number.
         with open(_os.path.join(self.gl_temp_storage_path, 'version'), 'w') as f:
@@ -335,33 +335,28 @@ class GLPickler(_cloudpickle.CloudPickler):
         """
 
         # Get the class of the object (if it can be done)
-        obj_class = None if not hasattr(obj, '__class__') else obj.__class__
+        obj_class = obj.__class__ if hasattr(obj, '__class__') else None
         if obj_class is None:
             return None
 
-        # If the object is a GLC class.
-        if _is_not_pickle_safe_gl_class(obj_class):
-            if (id(obj) in self.gl_object_memo):
-                # has already been pickled
-                return (None, None, id(obj))
-            else:
-                # Save the location of the GLC object's archive to the pickle file.
-                relative_filename = str(_uuid.uuid4())
-                filename = _os.path.join(self.gl_temp_storage_path, relative_filename)
-                self.mark_for_delete -= set([filename])
-
-                # Save the GLC object
-                obj.save(filename)
-
-                # Memoize.
-                self.gl_object_memo.add(id(obj))
-
-                # Return the tuple (class_name, relative_filename) in archive.
-                return (_get_gl_class_type(obj.__class__), relative_filename, id(obj))
-
-        # Not a GLC object. Default to cloud pickle
-        else:
+        if not _is_not_pickle_safe_gl_class(obj_class):
             return None
+        if (id(obj) in self.gl_object_memo):
+            # has already been pickled
+            return (None, None, id(obj))
+        # Save the location of the GLC object's archive to the pickle file.
+        relative_filename = str(_uuid.uuid4())
+        filename = _os.path.join(self.gl_temp_storage_path, relative_filename)
+        self.mark_for_delete -= {filename}
+
+        # Save the GLC object
+        obj.save(filename)
+
+        # Memoize.
+        self.gl_object_memo.add(id(obj))
+
+        # Return the tuple (class_name, relative_filename) in archive.
+        return (_get_gl_class_type(obj.__class__), relative_filename, id(obj))
 
     def close(self):
         """
@@ -447,11 +442,11 @@ class GLUnpickler(_pickle.Unpickler):
             # GLC 1.3 uses zipfiles
             if _file_util._is_valid_s3_key(filename):
                 _file_util.download_from_s3(filename, self.tmp_file, \
-                        aws_credentials = _get_aws_credentials(), is_dir=False, silent=True)
+                            aws_credentials = _get_aws_credentials(), is_dir=False, silent=True)
             # GLC 1.4 uses directories
             else:
                 _file_util.download_from_s3(filename, self.tmp_file, \
-                        aws_credentials = _get_aws_credentials(), is_dir=True, silent=True)
+                            aws_credentials = _get_aws_credentials(), is_dir=True, silent=True)
 
             filename = self.tmp_file
         elif _file_util.is_hdfs_path(filename):
@@ -463,7 +458,7 @@ class GLUnpickler(_pickle.Unpickler):
                          _os.path.expanduser(
                            _os.path.expandvars(filename)))
             if not _os.path.exists(filename):
-                raise IOError('%s is not a valid file name.' % filename)
+                raise IOError(f'{filename} is not a valid file name.')
 
         # GLC 1.3 Pickle file
         if _zipfile.is_zipfile(filename):
@@ -485,23 +480,21 @@ class GLUnpickler(_pickle.Unpickler):
                 outpath = self.gl_temp_storage_path
                 zf.extractall(outpath)
             except IOError as err:
-                print("Graphlab pickle extraction error: %s " % err)
+                print(f"Graphlab pickle extraction error: {err} ")
 
             self.pickle_filename = _os.path.join(self.gl_temp_storage_path,
                                                  pickle_filename)
 
-        # GLC Pickle directory mode.
         elif _os.path.isdir(filename):
             self.directory_mode = True
             pickle_filename = _os.path.join(filename, "pickle_archive")
             if not _os.path.exists(pickle_filename):
-                raise IOError("Corrupted archive: Missing pickle file %s." % pickle_filename)
+                raise IOError(f"Corrupted archive: Missing pickle file {pickle_filename}.")
             if not _os.path.exists(_os.path.join(filename, "version")):
                 raise IOError("Corrupted archive: Missing version file.")
             self.pickle_filename = pickle_filename
             self.gl_temp_storage_path = _os.path.abspath(filename)
 
-        # Pure pickle file.
         else:
             self.directory_mode = False
             self.pickle_filename = filename
@@ -534,11 +527,10 @@ class GLUnpickler(_pickle.Unpickler):
             type_tag, filename, object_id = pid
             if object_id in self.gl_object_memo:
                 return self.gl_object_memo[object_id]
-            else:
-                abs_path = _os.path.join(self.gl_temp_storage_path, filename)
-                obj = _get_gl_object_from_persistent_id(type_tag, abs_path)
-                self.gl_object_memo[object_id] = obj
-                return obj
+            abs_path = _os.path.join(self.gl_temp_storage_path, filename)
+            obj = _get_gl_object_from_persistent_id(type_tag, abs_path)
+            self.gl_object_memo[object_id] = obj
+            return obj
 
     def close(self):
         """

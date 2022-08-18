@@ -28,22 +28,16 @@ class SymbolVisitor(Visitor):
         return ids
 
     def visitName(self, node):
-        if isinstance(node.ctx, self.ctx_types):
-            return {node.id}
-        else:
-            return set()
+        return {node.id} if isinstance(node.ctx, self.ctx_types) else set()
 
     def visitalias(self, node):
 
-        name = node.asname if node.asname else node.name
+        name = node.asname or node.name
 
         if '.' in name:
             name = name.split('.', 1)[0]
 
-        if ast.Store in self.ctx_types:
-            return {name}
-        else:
-            return set()
+        return {name} if ast.Store in self.ctx_types else set()
 
 
 

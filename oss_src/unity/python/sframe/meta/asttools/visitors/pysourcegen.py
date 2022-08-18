@@ -39,8 +39,6 @@ class ASTFormatter(Formatter):
         key = int(key)
         return args[key]
 
-        raise Exception
-
 def str_node(node):
     gen = ExprSourceGen()
     gen.visit(node)
@@ -73,14 +71,13 @@ class ExprSourceGen(Visitor):
 
     def dumps(self):
         self.out.seek(0)
-        value = self.out.read()
-        return value
+        return self.out.read()
 
     def print(self, line, *args, **kwargs):
         line = self.formatter.format(line, *args, **kwargs)
 
         level = kwargs.get('level')
-        prx = self.indent * (level if level else self.level)
+        prx = self.indent * (level or self.level)
         print(prx, line, sep='', end='', file=self.out)
 
     def print_lines(self, lines,):
@@ -150,14 +147,14 @@ class ExprSourceGen(Visitor):
                 self.print(':{:node}', node.varargannotation)
         elif node.kwonlyargs:
             self.print('{0}*', ', ' if i else '')
-        
+
         kwonlyargs = list(node.kwonlyargs)
-        
+
         if kwonlyargs:
             i += 1
             kw_defaults = [None] * (len(kwonlyargs) - len(node.kw_defaults))
             kw_defaults.extend(node.kw_defaults)
-            
+
         while kwonlyargs:
             kw_arg = kwonlyargs.pop(0)
             kw_default = kw_defaults.pop(0)
@@ -165,7 +162,7 @@ class ExprSourceGen(Visitor):
             self.visit(kw_arg)
             if kw_default is not None:
                 self.print('={:node}', kw_default)
-        
+
         if node.kwarg:
             self.print('{0}**{1}', ', ' if i else '', node.kwarg)
             if node.varargannotation:
@@ -508,12 +505,15 @@ class SourceGen(ExprSourceGen):
     def visitModule(self, node):
 
         children = list(self.children(node))
-        if children and isinstance(children[0], _ast.Expr):
-            if isinstance(children[0].value, _ast.Str):
-                doc = children.pop(0).value
-                self.print("'''")
-                self.print_lines(doc.s.split('\n'))
-                self.print_lines(["'''", '\n', '\n'])
+        if (
+            children
+            and isinstance(children[0], _ast.Expr)
+            and isinstance(children[0].value, _ast.Str)
+        ):
+            doc = children.pop(0).value
+            self.print("'''")
+            self.print_lines(doc.s.split('\n'))
+            self.print_lines(["'''", '\n', '\n'])
 
         for node in children:
             self.visit(node)
@@ -583,7 +583,7 @@ class SourceGen(ExprSourceGen):
                     self.visit(expr)
             else:
                 self.print('pass')
-                    
+
 
         if node.orelse and len(node.orelse) == 1 and isinstance(node.orelse[0], _ast.If):
             self.print('el'); self.visit(node.orelse[0], indent_first=False)
@@ -775,8 +775,7 @@ class SourceGen(ExprSourceGen):
 
         with self.no_indent:
             self.print('(')
-            bases = list(node.bases)
-            if bases:
+            if bases := list(node.bases):
                 base = bases.pop(0)
                 self.print("{0:node}", base)
                 while bases:
@@ -803,18 +802,15 @@ class SourceGen(ExprSourceGen):
 
         with self.no_indent:
             self.print('(')
-            bases = list(node.bases)
             i = 0
-            if bases:
+            if bases := list(node.bases):
                 i += 1
                 base = bases.pop(0)
                 self.print("{0:node}", base)
                 while bases:
                     base = bases.pop(0)
                     self.print(", {0:node}", base)
-            keywords = list(node.keywords)
-            
-            if keywords:
+            if keywords := list(node.keywords):
                 if i: self.print(', ')
                 i += 1
                 keyword = keywords.pop(0)
@@ -822,7 +818,7 @@ class SourceGen(ExprSourceGen):
                 while keywords:
                     base = keywords.pop(0)
                     self.print(", {0:node}", keyword)
-            
+
             if node.starargs:
                 if i: self.print(', ')
                 i += 1
@@ -832,7 +828,7 @@ class SourceGen(ExprSourceGen):
                 if i: self.print(', ')
                 i += 1
                 self.print("*{0:node}", node.kwargs)
-                
+
             self.print(')')
 
             self.print(":")

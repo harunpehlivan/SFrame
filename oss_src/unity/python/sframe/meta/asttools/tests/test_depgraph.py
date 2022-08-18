@@ -15,16 +15,18 @@ tested = AllTypesTested()
  
 def binop_method(op):
     def test_binop(self):
-        source = 'c = a %s b' % (op,)
+        source = f'c = a {op} b'
         self.assertDepends(source, {('c', 'a'), ('c', 'b')},
                            {'a', 'b'}, {'c'})
+
     return test_binop
 
 def unarynop_method(op):
     def test_unaryop(self):
-        source = 'c = %s b' % (op,)
+        source = f'c = {op} b'
         self.assertDepends(source, { ('c', 'b')},
                            { 'b'}, {'c'})
+
     return test_unaryop
 
 @skip_networkx

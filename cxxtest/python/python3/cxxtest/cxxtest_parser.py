@@ -63,9 +63,8 @@ def scanInputFile(fileName):
             break
         lineNo += 1
 
-        m = lineCont_re.match(line)
-        if m:
-            prev += m.group(1) + " "
+        if m := lineCont_re.match(line):
+            prev += f"{m.group(1)} "
             contNo += 1
         else:
             scanInputLine( fileName, lineNo - contNo, prev + line )
@@ -73,7 +72,7 @@ def scanInputFile(fileName):
             prev = ""
     if contNo:
         scanInputLine( fileName, lineNo - contNo, prev + line )
-        
+
     closeSuite()
     file.close()
 
@@ -115,17 +114,23 @@ std_re = re.compile( r"\b(std\s*::|CXXTEST_STD|using\s+namespace\s+std\b|^\s*\#\
 def scanLineForStandardLibrary( line ):
     '''Check if current line uses standard library'''
     global options
-    if not options.haveStandardLibrary and std_re.search(line):
-        if not options.noStandardLibrary:
-            options.haveStandardLibrary = 1
+    if (
+        not options.haveStandardLibrary
+        and std_re.search(line)
+        and not options.noStandardLibrary
+    ):
+        options.haveStandardLibrary = 1
 
 exception_re = re.compile( r"\b(throw|try|catch|TSM?_ASSERT_THROWS[A-Z_]*)\b" )
 def scanLineForExceptionHandling( line ):
     '''Check if current line uses exception handling'''
     global options
-    if not options.haveExceptionHandling and exception_re.search(line):
-        if not options.noExceptionHandling:
-            options.haveExceptionHandling = 1
+    if (
+        not options.haveExceptionHandling
+        and exception_re.search(line)
+        and not options.noExceptionHandling
+    ):
+        options.haveExceptionHandling = 1
 
 classdef = '(?:::\s*)?(?:\w+\s*::\s*)*\w+'
 baseclassdef = '(?:public|private|protected)\s+%s' % (classdef,)
@@ -137,15 +142,13 @@ generatedSuite_re = re.compile( r'\bCXXTEST_SUITE\s*\(\s*(\w*)\s*\)' )
 def scanLineForSuiteStart( fileName, lineNo, line ):
     '''Check if current line starts a new test suite'''
     for i in list(suites_re.items()):
-        m = i[0].search( line )
-        if m:
+        if m := i[0].search(line):
             suite = startSuite( m.group(1), fileName, lineNo, 0 )
             if i[1] is not None:
                 for test in i[1]['tests']:
                     addTest(suite, test['name'], test['line'])
             break
-    m = generatedSuite_re.search( line )
-    if m:
+    if m := generatedSuite_re.search(line):
         sys.stdout.write( "%s:%s: Warning: Inline test suites are deprecated.\n" % (fileName, lineNo) )
         startSuite( m.group(1), fileName, lineNo, 1 )
 
@@ -154,17 +157,20 @@ def startSuite( name, file, line, generated ):
     global suite
     closeSuite()
     object_name = name.replace(':',"_")
-    suite = { 'fullname'     : name,
-              'name'         : name,
-              'file'         : file,
-              'cfile'        : cstr(file),
-              'line'         : line,
-              'generated'    : generated,
-              'object'       : 'suite_%s' % object_name,
-              'dobject'      : 'suiteDescription_%s' % object_name,
-              'tlist'        : 'Tests_%s' % object_name,
-              'tests'        : [],
-              'lines'        : [] }
+    suite = {
+        'fullname': name,
+        'name': name,
+        'file': file,
+        'cfile': cstr(file),
+        'line': line,
+        'generated': generated,
+        'object': f'suite_{object_name}',
+        'dobject': f'suiteDescription_{object_name}',
+        'tlist': f'Tests_{object_name}',
+        'tests': [],
+        'lines': [],
+    }
+
     suites_re[re.compile( general_suite + name )] = suite
     return suite
 
@@ -175,18 +181,19 @@ def lineStartsBlock( line ):
 test_re = re.compile( r'^([^/]|/[^/])*\bvoid\s+([Tt]est\w+)\s*\(\s*(void)?\s*\)' )
 def scanLineForTest( suite, lineNo, line ):
     '''Check if current line starts a test'''
-    m = test_re.search( line )
-    if m:
+    if m := test_re.search(line):
         addTest( suite, m.group(2), lineNo )
 
 def addTest( suite, name, line ):
     '''Add a test function to the current suite'''
-    test = { 'name'   : name,
-             'suite'  : suite,
-             'class'  : 'TestDescription_%s_%s' % (suite['object'], name),
-             'object' : 'testDescription_%s_%s' % (suite['object'], name),
-             'line'   : line,
-             }
+    test = {
+        'name': name,
+        'suite': suite,
+        'class': f"TestDescription_{suite['object']}_{name}",
+        'object': f"testDescription_{suite['object']}_{name}",
+        'line': line,
+    }
+
     suite['tests'].append( test )
 
 def addLineToBlock( suite, lineNo, line ):
@@ -226,7 +233,7 @@ def cstr( s ):
 def addSuiteCreateDestroy( suite, which, line ):
     '''Add createSuite()/destroySuite() to current suite'''
     if which in suite:
-        abort( '%s:%s: %sSuite() already declared' % ( suite['file'], str(line), which ) )
+        abort(f"{suite['file']}:{str(line)}: {which}Suite() already declared")
     suite[which] = line
 
 def closeSuite():
@@ -241,11 +248,14 @@ def closeSuite():
 def verifySuite(suite):
     '''Verify current suite is legal'''
     if 'create' in suite and 'destroy' not in suite:
-        abort( '%s:%s: Suite %s has createSuite() but no destroySuite()' %
-               (suite['file'], suite['create'], suite['name']) )
+        abort(
+            f"{suite['file']}:{suite['create']}: Suite {suite['name']} has createSuite() but no destroySuite()"
+        )
+
     elif 'destroy' in suite and 'create' not in suite:
-        abort( '%s:%s: Suite %s has destroySuite() but no createSuite()' %
-               (suite['file'], suite['destroy'], suite['name']) )
+        abort(
+            f"{suite['file']}:{suite['destroy']}: Suite {suite['name']} has destroySuite() but no createSuite()"
+        )
 
 def rememberSuite(suite):
     '''Add current suite to list'''

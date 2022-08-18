@@ -6,9 +6,7 @@ from itertools import chain
 
 def get_main_dir():
     script_path = abspath(sys.modules[__name__].__file__)
-    main_dir = split(split(script_path)[0])[0]
-
-    return main_dir
+    return split(split(script_path)[0])[0]
 
 def get_installation_flavor():
 
@@ -19,17 +17,14 @@ def get_installation_flavor():
     elif module == "graphlab":
         return "graphlab"
     else:
-        raise ImportError("Installation module does not appear to be sframe or graphlab; main dir = %s"
-                          % get_main_dir())
+        raise ImportError(
+            f"Installation module does not appear to be sframe or graphlab; main dir = {get_main_dir()}"
+        )
 
 
 def load_isolated_gl_module(subdir, name):
 
-    if subdir:
-        path = join(get_main_dir(), subdir)
-    else:
-        path = get_main_dir()
-
+    path = join(get_main_dir(), subdir) if subdir else get_main_dir()
     fp, pathname, description = imp.find_module(name, [path])
 
     try:
@@ -51,14 +46,14 @@ def setup_environment(info_log_function = None, error_log_function = None):
                     error_log_function(s)
                 except Exception as e:
                     print("Error setting exception: repr(e)")
-                    print("Error: %s" % str(s))
+                    print(f"Error: {str(s)}")
         else:
             if info_log_function is not None:
                 try:
                     info_log_function(s)
                 except Exception as e:
-                    print("Error logging info: %s." % repr(e))
-                    print("Message: %s" % str(s))
+                    print(f"Error logging info: {repr(e)}.")
+                    print(f"Message: {str(s)}")
 
     ########################################
     # Set up the system path.
@@ -76,7 +71,7 @@ def setup_environment(info_log_function = None, error_log_function = None):
 
     main_dir = get_main_dir()
 
-    _write_log("Main program directory: %s." % main_dir)
+    _write_log(f"Main program directory: {main_dir}.")
 
     ########################################
     # Finally, set the dll load path if we are on windows

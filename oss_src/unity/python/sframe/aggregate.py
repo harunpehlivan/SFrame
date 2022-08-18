@@ -217,14 +217,14 @@ def CONCAT(src_column, dict_value_column = None):
   "count" into a dictionary with keys being words and values being
   counts.
   """
-  if dict_value_column == None:
+  if dict_value_column is None:
     return ("__builtin__concat__list__", [src_column])
   else:
     return ("__builtin__concat__dict__", [src_column, dict_value_column])
 
 
 def QUANTILE(src_column, *args):
-    """
+  """
     Builtin approximate quantile aggregator for groupby.
     Accepts as an argument, one or more of a list of quantiles to query.
     For instance:
@@ -248,15 +248,11 @@ def QUANTILE(src_column, *args):
     if the requested quantile is 0.50, the resultant quantile value may be
     between 0.495 and 0.505 of the true quantile.
     """
-    if len(args) == 1:
-        quantiles = args[0]
-    else:
-        quantiles = list(args)
-
-    if not _is_non_string_iterable(quantiles):
-        quantiles = [quantiles]
-    query = ",".join([str(i) for i in quantiles])
-    return ("__builtin__quantile__[" + query + "]", [src_column])
+  quantiles = args[0] if len(args) == 1 else list(args)
+  if not _is_non_string_iterable(quantiles):
+      quantiles = [quantiles]
+  query = ",".join([str(i) for i in quantiles])
+  return f"__builtin__quantile__[{query}]", [src_column]
 
 
 def COUNT_DISTINCT(src_column):

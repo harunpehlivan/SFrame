@@ -26,10 +26,7 @@ class image_info:
             self.format = 'PNG'
         elif 'jpg' in url:
             self.format = 'JPG'
-        if 'grey' in url:
-            self.channels = 1
-        else:
-            self.channels = 3
+        self.channels = 1 if 'grey' in url else 3
 
 urls = [current_file_dir + x for x in [
          '/images/nested/sample_grey.jpg',
@@ -51,7 +48,7 @@ class ImageClassTest(unittest.TestCase):
         self.assertEqual(glimage_decoded._format_enum, image._format['RAW'])
         # Getting data
         if glimage.channels == 1:
-            pil_data = bytearray([z for z in pilimage.getdata()])
+            pil_data = bytearray(list(pilimage.getdata()))
         else:
             pil_data = bytearray([z for l in pilimage.getdata() for z in l])
 
@@ -120,7 +117,7 @@ class ImageClassTest(unittest.TestCase):
                     self.__check_raw_image_equals_pilimage(glimage_resized, pilimage)
 
     def test_batch_resize(self):
-        image_url_dir = current_file_dir + '/images'
+        image_url_dir = f'{current_file_dir}/images'
         sa = image_analysis.load_images(image_url_dir, "auto", with_path=False)['image']
         for new_channels in [1, 3, 4]:
             sa_resized = image_analysis.resize(sa, 320, 280, new_channels)
@@ -130,7 +127,7 @@ class ImageClassTest(unittest.TestCase):
                 self.assertEqual(i.channels, new_channels)
 
     def test_load_images(self):
-        image_url_dir = current_file_dir + '/images'
+        image_url_dir = f'{current_file_dir}/images'
         # Test auto format, with path and recursive
         sf1 = image_analysis.load_images(image_url_dir, "auto", True, True)
         self.assertEqual(sf1.num_columns(), 2)
@@ -168,13 +165,13 @@ class ImageClassTest(unittest.TestCase):
         image_analysis.load_images(image_url_dir, 'PNG', ignore_failure=True)
 
     def test_casting(self):
-        image_url_dir = current_file_dir + '/images/nested'
+        image_url_dir = f'{current_file_dir}/images/nested'
         sf = image_analysis.load_images(image_url_dir, "auto", True, True)
         sa = sf['image']
         sa_vec = sa.astype(array.array)
         sa_img = sa_vec.pixel_array_to_image(sa[0].width, sa[0].height, sa[0].channels)
         sa_str = sa.astype(str)
-        sa_str_expected = 'Height: ' + str(sa[0].height) + ' Width: ' + str(sa[0].width)
+        sa_str_expected = f'Height: {str(sa[0].height)} Width: {str(sa[0].width)}'
         decoded_image = image_analysis._decode(sa[0])
         self.assertEqual(sa_img[0].height, sa[0].height)
         self.assertEqual(sa_img[0].width, sa[0].width)
@@ -184,7 +181,7 @@ class ImageClassTest(unittest.TestCase):
         self.assertEqual(sa_str[0], sa_str_expected)
 
     def test_lambda(self):
-        image_url_dir = current_file_dir + '/images'
+        image_url_dir = f'{current_file_dir}/images'
         sf = image_analysis.load_images(image_url_dir)
         sa = sf['image']
 
